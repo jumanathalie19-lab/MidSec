@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Midview — Panic Alerts</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700&family=DM+Sans:wght@300;400;500&display=swap"
+      rel="stylesheet">
+<style>
+  :root{
+    --bg:#0d1117;--surface:#161b22;--border:rgba(255,255,255,.08);
+    --text:#e6edf3;--gray:#7d8590;--accent:#58a6ff;
+    --danger:#f85149;--danger2:#ff7b72;--success:#3fb950;
+    --warn:#d29922;--navy:#102a43;
+    --font-head:'Syne',sans-serif;--font-body:'DM Sans',sans-serif;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{background:var(--bg);color:var(--text);font-family:var(--font-body);
+       min-height:100vh;display:flex;flex-direction:column;}
+  .topbar{background:var(--navy);padding:14px 20px;display:flex;
+          align-items:center;justify-content:space-between;
+          position:sticky;top:0;z-index:100;
+          border-bottom:1px solid rgba(255,255,255,.06);}
+  .topbar h1{font-family:var(--font-head);font-size:16px;font-weight:700;}
+  .back{background:none;border:none;color:#fff;font-size:20px;
+        cursor:pointer;padding:0 10px 0 0;}
+  .refresh-btn{background:none;border:1px solid var(--border);
+               color:var(--gray);padding:5px 12px;border-radius:8px;
+               font-size:12px;cursor:pointer;font-family:var(--font-body);}
+  .main{flex:1;padding:16px;max-width:900px;margin:0 auto;width:100%;}
+  /* Tabs */
+  .tabs{display:flex;gap:4px;margin-bottom:14px;
+        background:var(--surface);border-radius:10px;padding:4px;}
+  .tab{flex:1;padding:8px;text-align:center;font-size:13px;
+       border-radius:8px;cursor:pointer;border:none;
+       background:transparent;color:var(--gray);font-family:var(--font-body);}
+  .tab.active{background:var(--danger);color:#fff;font-weight:600;}
+  .tab.active.hist{background:var(--accent);}
+  /* Alert cards */
+  .alert-card{
+    border-radius:12px;padding:16px;margin-bottom:12px;
+    border:1px solid rgba(248,81,73,.25);
+    background:rgba(248,81,73,.06);
+  }
+  .alert-card.responded{
+    border-color:rgba(210,153,34,.25);background:rgba(210,153,34,.06);
+  }
+  .alert-card.closed{
+    border-color:rgba(63,185,80,.15);background:rgba(63,185,80,.04);
+    opacity:.7;
+  }
+  .alert-top{display:flex;align-items:center;justify-content:space-between;
+             margin-bottom:10px;}
+  .alert-name{font-family:var(--font-head);font-size:15px;font-weight:700;
+              display:flex;align-items:center;gap:8px;}
+  .pulse{width:9px;height:9px;border-radius:50%;background:var(--danger);
+         animation:pulse 1.2s infinite;}
+  @keyframes pulse{0%,100%{opacity:1;transform:scale(1);}
+                   50%{opacity:.3;transform:scale(.7);}}
+  .timer{font-size:12px;font-weight:700;color:var(--danger2);}
+  .alert-info{display:grid;grid-template-columns:1fr 1fr;gap:6px;
+              margin-bottom:12px;}
+  .info-item{font-size:12px;color:var(--gray);}
+  .info-item strong{display:block;color:var(--text);font-size:13px;
+                    font-weight:500;margin-top:1px;}
+  .alert-actions{display:flex;gap:8px;flex-wrap:wrap;}
+  /* Close modal */
+  .overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);
+           z-index:200;align-items:flex-end;}
+  .overlay.open{display:flex;}
+  .sheet{background:var(--surface);border-radius:16px 16px 0 0;
+         width:100%;padding:20px;}
+  .sheet-handle{width:40px;height:4px;background:var(--border);
+                border-radius:2px;margin:0 auto 16px;}
+  .sheet h2{font-family:var(--font-head);font-size:16px;font-weight:700;
+            margin-bottom:14px;}
+  .field{display:flex;flex-direction:column;gap:6px;margin-bottom:12px;}
+  .field label{font-size:12px;color:var(--gray);}
+  .field textarea{background:rgba(255,255,255,.05);border:1px solid var(--border);
+                  border-radius:8px;padding:10px 12px;color:var(--text);
+                  font-family:var(--font-body);font-size:13px;width:100%;}
+  .field textarea:focus{outline:none;border-color:var(--accent);}
+  /* Buttons */
+  .btn{padding:10px 16px;border-radius:8px;font-size:13px;font-weight:500;
+       cursor:pointer;border:none;font-family:var(--font-body);
+       transition:opacity .2s;width:100%;margin-bottom:8px;}
+  .btn:disabled{opacity:.5;cursor:not-allowed;}
+  .btn-success{background:rgba(63,185,80,.15);color:var(--success);
+               border:1px solid rgba(63,185,80,.3);}
+  .btn-danger-sm{background:rgba(248,81,73,.15);color:var(--danger2);
+                 border:1px solid rgba(248,81,73,.3);
+                 width:auto;padding:8px 14px;margin-bottom:0;}
+  .btn-ghost{background:transparent;color:var(--gray);
+             border:1px solid var(--border);}
+  .btn-primary{background:var(--accent);color:#0d1117;font-weight:600;}
+  .btn:hover:not(:disabled){opacity:.8;}
+  /* History */
+  .hist-row{display:flex;align-items:center;gap:10px;
+            padding:10px 0;border-bottom:1px solid var(--border);}
+  .hist-row:last-child{border-bottom:none;}
+  .badge{font-size:10px;font-weight:600;padding:3px 8px;
+         border-radius:10px;white-space:nowrap;}
+  .b-active{background:rgba(248,81,73,.15);color:var(--danger2);}
+  .b-responded{background:rgba(210,153,34,.15);color:var(--warn);}
+  .b-closed{background:rgba(63,185,80,.15);color:var(--success);}
+  /* Bottom nav */
+  .bottomnav{position:sticky;bottom:0;background:var(--surface);
+             border-top:1px solid var(--border);
+             display:flex;justify-content:space-around;padding:10px 0 14px;}
+  .navitem{display:flex;flex-direction:column;align-items:center;gap:3px;
+           background:none;border:none;color:var(--gray);cursor:pointer;
+           font-family:var(--font-body);font-size:10px;padding:4px 14px;}
+  .navitem svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.5;}
+  .navitem.active{color:var(--danger2);}
+  .loading{display:flex;align-items:center;gap:8px;font-size:12px;
+           color:var(--gray);padding:8px 0;}
+  .spinner{width:14px;height:14px;border:2px solid var(--border);
+           border-top-color:var(--accent);border-radius:50%;
+           animation:spin .7s linear infinite;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+  .msg{padding:10px 14px;border-radius:8px;font-size:13px;
+       margin-bottom:12px;display:none;}
+  .msg.success{background:rgba(63,185,80,.1);color:var(--success);
+               border:1px solid rgba(63,185,80,.2);display:block;}
+  .msg.error{background:rgba(248,81,73,.1);color:var(--danger2);
+             border:1px solid rgba(248,81,73,.2);display:block;}
+  .msg.info{background:rgba(88,166,255,.08);color:var(--accent);
+            border:1px solid rgba(88,166,255,.2);display:block;}
+  .empty{font-size:12px;color:var(--gray);padding:12px 0;text-align:center;}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div style="display:flex;align-items:center;">
+    <button class="back" onclick="goto('dashboard.html')">←</button>
+    <h1>Panic Alerts</h1>
+  </div>
+  <button class="refresh-btn" onclick="loadActive()">⟳ Refresh</button>
+</div>
+
+<div class="main">
+
+  <div id="msgBox" class="msg"></div>
+
+  <div class="tabs">
+    <button class="tab active" onclick="showTab('active')">🚨 Active</button>
+    <button class="tab hist"   onclick="showTab('history')">History</button>
+  </div>
+
+  <!-- Active panics tab -->
+  <div id="tabActive">
+    <div id="activeList">
+      <div class="loading"><div class="spinner"></div> Loading…</div>
+    </div>
+  </div>
+
+  <!-- History tab -->
+  <div id="tabHistory" style="display:none;">
+    <div id="historyList">
+      <div class="loading"><div class="spinner"></div> Loading history…</div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Close panic sheet -->
+<div class="overlay" id="overlay" onclick="closeSheet(event)">
+  <div class="sheet" id="sheet">
+    <div class="sheet-handle"></div>
+    <h2>Close panic alert</h2>
+    <p style="font-size:12px;color:var(--gray);margin-bottom:14px;">
+      Document the outcome before closing this alert.
+      This creates an audit trail of the emergency response.
+    </p>
+    <div class="field">
+      <label>Resolution notes (required)</label>
+      <textarea id="resolutionNotes" rows="4"
+                placeholder="What happened? What action was taken? How was the situation resolved?"
+                maxlength="500"></textarea>
+    </div>
+    <button class="btn btn-success" id="closeAlertBtn"
+            onclick="submitClose()">Close alert</button>
+    <button class="btn btn-ghost" onclick="closeOverlay()">Cancel</button>
+  </div>
+</div>
+
+<!-- Bottom nav -->
+<div class="bottomnav">
+  <button class="navitem" onclick="goto('dashboard.html')">
+    <svg viewBox="0 0 24 24"><path d="M3 12l9-9 9 9M5 10v9a1 1 0 001 1h4v-5h4v5h4a1 1 0 001-1v-9"/></svg>
+    Home
+  </button>
+  <button class="navitem active" onclick="goto('panic.html')">
+    <svg viewBox="0 0 24 24"><path d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+    Panics
+  </button>
+  <button class="navitem" onclick="goto('incidents.html')">
+    <svg viewBox="0 0 24 24"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+    Incidents
+  </button>
+  <button class="navitem" onclick="goto('cctv.html')">
+    <svg viewBox="0 0 24 24"><path d="M15 10l4.553-2.276A1 1 0 0121 8.723v6.554a1 1 0 01-1.447.894L15 14M3 8a2 2 0 012-2h10a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8z"/></svg>
+    CCTV
+  </button>
+  <button class="navitem" onclick="guardLogout()" style="color:var(--danger2);">
+    <svg viewBox="0 0 24 24"><path d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
+    Logout
+  </button>
+</div>
+
+<script>
+// ============================================================
+//  Midview — Guard Panic Dashboard
+//  APIs: GET  /api/panic/active
+//        PATCH /api/panic/{id}/respond
+//        PATCH /api/panic/{id}/close
+//        GET   /api/panic/history
+// ============================================================
+const API = 'http://localhost/midview-security-app/api';
+
+const token = localStorage.getItem('midview_token');
+const user  = JSON.parse(localStorage.getItem('midview_user') || 'null');
+if (!token || !user || !['guard','admin'].includes(user.role)) {
+  window.location.href = '../shared/login.html';
+}
+
+function authHeaders() {
+  return { 'Authorization':`Bearer ${token}`, 'Content-Type':'application/json' };
+}
+function handleUnauth() {
+  localStorage.removeItem('midview_token');
+  localStorage.removeItem('midview_user');
+  window.location.href = '../shared/login.html';
+}
+function goto(p) { window.location.href = p; }
+function guardLogout() {
+  if (!confirm('Sign out?')) return;
+  localStorage.removeItem('midview_token');
+  localStorage.removeItem('midview_user');
+  window.location.href = '../shared/login.html';
+}
+
+let closeTargetId  = null;
+let refreshTimer   = null;
+
+// ---- Tab control -------------------------------------------
+function showTab(tab) {
+  document.getElementById('tabActive').style.display  = tab==='active'  ? 'block' : 'none';
+  document.getElementById('tabHistory').style.display = tab==='history' ? 'block' : 'none';
+  document.querySelectorAll('.tab').forEach((b,i) => {
+    const isActive = (tab==='active' && i===0) || (tab==='history' && i===1);
+    b.classList.toggle('active', isActive);
+    b.classList.toggle('hist',   isActive && tab==='history');
+  });
+  if (tab==='history') { clearInterval(refreshTimer); loadHistory(); }
+  else { loadActive(); refreshTimer = setInterval(loadActive, 20000); }
+}
+
+// ---- Load active panics ------------------------------------
+async function loadActive() {
+  try {
+    const res  = await fetch(`${API}/panic/active`, { headers: authHeaders() });
+    if (res.status === 401) { handleUnauth(); return; }
+    const data = await res.json();
+    const el   = document.getElementById('activeList');
+
+    if (!data.success || !data.data?.length) {
+      el.innerHTML =
+        '<div class="empty">✅ No active panic alerts right now.</div>';
+      return;
+    }
+
+    el.innerHTML = data.data.map(p => `
+      <div class="alert-card">
+        <div class="alert-top">
+          <div class="alert-name">
+            <div class="pulse"></div>
+            ${p.resident_name}
+          </div>
+          <span class="timer">${p.minutes_elapsed}m</span>
+        </div>
+
+        <div class="alert-info">
+          <div class="info-item">
+            House
+            <strong>${p.house_no}</strong>
+          </div>
+          <div class="info-item">
+            Phone
+            <strong>
+              <a href="tel:${p.resident_phone}"
+                 style="color:var(--accent)">${p.resident_phone}</a>
+            </strong>
+          </div>
+          <div class="info-item">
+            Location
+            <strong>${p.latitude}, ${p.longitude}</strong>
+          </div>
+          <div class="info-item">
+            CCTV
+            <strong>${p.cctv_feed || 'None assigned'}</strong>
+          </div>
+        </div>
+
+        <div class="alert-actions">
+          <button class="btn btn-danger-sm"
+                  onclick="respondAlert(${p.alert_id}, this)">
+            Respond
+          </button>
+          <button class="btn btn-danger-sm"
+                  style="background:rgba(63,185,80,.1);color:var(--success);
+                         border-color:rgba(63,185,80,.2);"
+                  onclick="openCloseSheet(${p.alert_id})">
+            Close alert
+          </button>
+          ${p.cctv_url
+            ? `<a href="${p.cctv_url}" target="_blank" rel="noopener"
+                  class="btn btn-danger-sm"
+                  style="background:rgba(88,166,255,.1);color:var(--accent);
+                         border-color:rgba(88,166,255,.2);text-decoration:none;">
+                  View CCTV
+               </a>`
+            : ''}
+        </div>
+      </div>`).join('');
+
+  } catch (err) {
+    document.getElementById('activeList').innerHTML =
+      '<p class="empty">Could not load active alerts.</p>';
+  }
+}
+
+// ---- Respond -----------------------------------------------
+// PATCH /api/panic/{id}/respond
+// SELECT FOR UPDATE in procedure — no retry; 409 = already claimed
+async function respondAlert(id, btn) {
+  btn.disabled    = true;
+  btn.textContent = 'Responding…';
+
+  try {
+    const res  = await fetch(`${API}/panic/${id}/respond`, {
+      method:'PATCH', headers: authHeaders(),
+    });
+    if (res.status === 401) { handleUnauth(); return; }
+    const data = await res.json();
+
+    if (res.ok && data.success) {
+      showMsg('✅ Assigned. Head to the location now.', 'success');
+      loadActive();
+    } else if (res.status === 409) {
+      showMsg('Another guard has already responded.', 'info');
+      loadActive();
+    } else {
+      showMsg(data.message || 'Could not respond.', 'error');
+      btn.disabled    = false;
+      btn.textContent = 'Respond';
+    }
+  } catch (err) {
+    showMsg('Server error.', 'error');
+    btn.disabled    = false;
+    btn.textContent = 'Respond';
+  }
+}
+
+// ---- Open close sheet --------------------------------------
+function openCloseSheet(id) {
+  closeTargetId = id;
+  document.getElementById('resolutionNotes').value = '';
+  document.getElementById('overlay').classList.add('open');
+}
+
+// ---- Submit close ------------------------------------------
+// PATCH /api/panic/{id}/close
+// resolution_notes mandatory — validated here before API call
+async function submitClose() {
+  const notes = document.getElementById('resolutionNotes').value.trim();
+  if (!notes) {
+    showMsg('Resolution notes are required before closing.', 'error');
+    return;
+  }
+
+  const btn      = document.getElementById('closeAlertBtn');
+  btn.disabled   = true;
+  btn.textContent = 'Closing…';
+
+  try {
+    const res = await fetch(`${API}/panic/${closeTargetId}/close`, {
+      method:  'PATCH',
+      headers: authHeaders(),
+      body:    JSON.stringify({ resolution_notes: notes }),
+    });
+    if (res.status === 401) { handleUnauth(); return; }
+    const data = await res.json();
+
+    if (res.ok && data.success) {
+      showMsg('Alert closed and outcome recorded.', 'success');
+      closeOverlay();
+      loadActive();
+    } else {
+      showMsg(data.message || 'Could not close alert.', 'error');
+    }
+  } catch (err) {
+    showMsg('Server error.', 'error');
+  } finally {
+    btn.disabled    = false;
+    btn.textContent = 'Close alert';
+  }
+}
+
+// ---- Load history ------------------------------------------
+// GET /api/panic/history — stream_url excluded by procedure
+async function loadHistory() {
+  try {
+    const res  = await fetch(`${API}/panic/history`, { headers: authHeaders() });
+    if (res.status === 401) { handleUnauth(); return; }
+    const data = await res.json();
+    const el   = document.getElementById('historyList');
+
+    if (!data.success || !data.data?.length) {
+      el.innerHTML = '<div class="empty">No panic history yet.</div>';
+      return;
+    }
+
+    const badge = s => ({
+      active:    '<span class="badge b-active">Active</span>',
+      responded: '<span class="badge b-responded">Responded</span>',
+      closed:    '<span class="badge b-closed">Closed</span>',
+    }[s] || s);
+
+    el.innerHTML = data.data.map(p => `
+      <div class="hist-row">
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:13px;font-weight:500;">${p.resident_name}</div>
+          <div style="font-size:11px;color:var(--gray);margin-top:2px;">
+            🏠 ${p.house_no}
+            ${p.response_time_mins !== null
+              ? ` · ⏱ ${p.response_time_mins}m response`
+              : ''}
+            ${p.guard_name ? ` · 👮 ${p.guard_name}` : ''}
+          </div>
+          <div style="font-size:11px;color:var(--gray);margin-top:1px;">
+            ${new Date(p.triggered_at).toLocaleString()}
+          </div>
+        </div>
+        ${badge(p.status)}
+      </div>`).join('');
+
+  } catch (err) {
+    document.getElementById('historyList').innerHTML =
+      '<p class="empty">Could not load history.</p>';
+  }
+}
+
+function showMsg(text, type) {
+  const el = document.getElementById('msgBox');
+  el.textContent = text;
+  el.className   = `msg ${type}`;
+  setTimeout(() => { el.className = 'msg'; }, 5000);
+}
+
+function closeOverlay()  { document.getElementById('overlay').classList.remove('open'); }
+function closeSheet(e)   { if (e.target===document.getElementById('overlay')) closeOverlay(); }
+
+// ---- Init --------------------------------------------------
+loadActive();
+// Auto-refresh active panics every 20 seconds
+refreshTimer = setInterval(loadActive, 20000);
+</script>
+</body>
+</html>

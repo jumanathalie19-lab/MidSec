@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Midview — Subscription</title>
+<link rel="stylesheet" href="../../css/main.css"/>
+</head>
+<body>
+<div class="app">
+
+  <div class="topbar">
+    <a class="back" href="dashboard.html">←</a>
+    <h1>Subscription</h1>
+  </div>
+
+  <div class="body">
+
+    <div id="subMsg" class="msg" role="alert" aria-live="polite"></div>
+
+    <!-- Status card -->
+    <div class="card-accent">
+      <p style="font-size:10px;color:rgba(255,255,255,0.5);letter-spacing:.5px;margin-bottom:6px">
+        SUBSCRIPTION STATUS
+      </p>
+      <div id="subStatusContent">
+        <div class="loading"><div class="spinner"></div></div>
+      </div>
+    </div>
+
+    <!-- Service fee info -->
+    <div class="card">
+      <h3>Service fee</h3>
+      <div style="display:flex;justify-content:space-between;
+                  align-items:center;margin-bottom:10px">
+        <span style="font-size:13px;color:var(--gray)">Monthly access fee</span>
+        <span style="font-family:var(--font-head);font-size:22px;
+                     font-weight:700;color:var(--accent)">KES 500</span>
+      </div>
+      <p style="font-size:11px;color:var(--gray);line-height:1.6">
+        Full access to Midview Security App including panic alerts,
+        incident reporting and court security updates for 30 days.
+      </p>
+    </div>
+
+    <!-- M-Pesa payment -->
+    <div class="card" id="payCard">
+      <h3>Pay via M-Pesa</h3>
+
+      <!--
+        HOW THE PAYMENT FLOW WORKS:
+        1. You tap "Pay KES 500".
+        2. The server sends an M-Pesa STK Push prompt to your
+           registered phone number.
+        3. Enter your M-Pesa PIN on your phone to confirm.
+        4. Your subscription activates automatically after confirmation.
+        You do NOT need to enter an M-Pesa reference manually.
+      -->
+
+      <div class="mpesa-box" style="margin-bottom:14px">
+        <svg style="width:20px;height:20px;stroke:var(--success2);
+                    fill:none;stroke-width:1.5" viewBox="0 0 24 24">
+          <path d="M22 11.08V12a10 10 0 11-5.93-9.14"/>
+          <polyline points="22 4 12 14.01 9 11.01"/>
+        </svg>
+        <span>M-Pesa STK Push</span>
+        <span style="font-size:11px;color:var(--gray);margin-left:auto">
+          Safaricom
+        </span>
+      </div>
+
+      <p style="font-size:12px;color:var(--gray);margin-bottom:14px;line-height:1.6">
+        A payment prompt will be sent to your registered M-Pesa number.
+        Enter your PIN to confirm.
+      </p>
+
+      <!-- Pending state (hidden until STK push sent) -->
+      <div id="pendingState" style="display:none;text-align:center;padding:16px 0">
+        <div class="loading" style="justify-content:center">
+          <div class="spinner"></div>
+        </div>
+        <p style="font-size:13px;font-weight:500;margin-top:8px">
+          Waiting for M-Pesa confirmation…
+        </p>
+        <p style="font-size:11px;color:var(--gray);margin-top:4px">
+          Enter your M-Pesa PIN on your phone.
+          This page will update automatically.
+        </p>
+        <button class="btn btn-ghost"
+                style="margin-top:12px;font-size:12px"
+                onclick="cancelPending()">
+          Cancel and try again
+        </button>
+      </div>
+
+      <!-- Pay button (hidden while pending) -->
+      <div id="payAction">
+        <button class="btn btn-primary" id="payBtn">
+          <span id="payBtnText">Pay KES 500</span>
+          <span id="payBtnSpinner"
+                style="display:none;width:.9rem;height:.9rem;
+                       border-width:.15em"
+                class="spinner-border ms-2"></span>
+        </button>
+        <p style="font-size:11px;color:var(--gray);
+                  text-align:center;margin-top:8px">
+          Payment will be sent to your registered phone number
+        </p>
+      </div>
+
+    </div>
+
+    <!-- Payment history -->
+    <div class="card">
+      <h3>Payment history</h3>
+      <div id="payHistory">
+        <div class="loading"><div class="spinner"></div></div>
+      </div>
+    </div>
+
+  </div><!-- /body -->
+
+  <!-- Bottom Nav -->
+  <div class="bottomnav">
+    <button class="navitem" onclick="window.location.href='dashboard.html'">
+      <svg viewBox="0 0 24 24">
+        <path d="M3 12l9-9 9 9M5 10v9a1 1 0 001 1h4v-5h4v5h4a1 1 0 001-1v-9"/>
+      </svg>
+      <span>Home</span>
+    </button>
+    <div class="panic-wrap" onclick="window.location.href='panic.html'">
+      <div class="panic-circle">
+        <svg viewBox="0 0 24 24">
+          <path d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71
+                   3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+        </svg>
+      </div>
+      <span>PANIC</span>
+    </div>
+    <button class="navitem active" onclick="window.location.href='subscription.html'">
+      <svg viewBox="0 0 24 24">
+        <rect x="2" y="5" width="20" height="14" rx="2"/>
+        <line x1="2" y1="10" x2="22" y2="10"/>
+      </svg>
+      <span>Pay</span>
+    </button>
+    <button class="navitem" onclick="window.location.href='profile.html'">
+      <svg viewBox="0 0 24 24">
+        <circle cx="12" cy="8" r="4"/>
+        <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
+      </svg>
+      <span>Profile</span>
+    </button>
+  </div>
+
+</div><!-- /app -->
+
+<script>
+// ============================================================
+//  Midview — Subscription Page
+//  Auth:  JWT from localStorage
+//
+//  M-PESA TWO-STEP FLOW:
+//  1. Resident taps "Pay KES 500"
+//  2. POST /api/payments/initiate → creates 'pending' payment,
+//     server triggers Safaricom STK Push to resident's phone
+//  3. Page polls GET /api/payments/subscription every 5s
+//     until subscription_status changes to 'active'
+//  4. On activation, show success and stop polling
+// ============================================================
+const API = 'http://localhost/midview-security-app/api';
+
+const token = localStorage.getItem('midview_token');
+const user  = JSON.parse(localStorage.getItem('midview_user') || 'null');
+if (!token || !user || user.role !== 'resident') {
+    window.location.href = '../shared/login.html';
+}
+
+function authHeaders() {
+    return {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type':  'application/json',
+    };
+}
+
+function handleUnauthorised() {
+    localStorage.removeItem('midview_token');
+    localStorage.removeItem('midview_user');
+    window.location.href = '../shared/login.html';
+}
+
+// Polling handle
+let pollInterval = null;
+
+// ---- Load subscription status ------------------------------
+async function loadSubscription() {
+    try {
+        const res = await fetch(`${API}/payments/subscription`, {
+            headers: authHeaders(),
+        });
+        if (res.status === 401) { handleUnauthorised(); return; }
+
+        const data = await res.json();
+        const el   = document.getElementById('subStatusContent');
+
+        if (!data.success || !data.data ||
+            data.data.subscription_status === 'no_subscription') {
+            el.innerHTML =
+                `<p style="font-family:var(--font-head);font-size:18px;
+                           font-weight:700;color:#fff">No subscription</p>
+                 <p style="font-size:12px;color:rgba(255,255,255,0.5);
+                           margin-top:4px">Pay below to activate access</p>`;
+            return;
+        }
+
+        const s      = data.data;
+        const active = s.subscription_status === 'active';
+
+        el.innerHTML = `
+            <p style="font-family:var(--font-head);font-size:18px;
+                      font-weight:700;color:#fff">
+                ${active ? 'Active' : s.subscription_status === 'payment_pending'
+                    ? 'Payment pending…' : 'Expired'}
+            </p>
+            <p style="font-size:12px;color:rgba(255,255,255,0.5);margin-top:4px">
+                ${active
+                    ? `Expires ${s.subscription_end} · ${s.days_remaining} days left`
+                    : s.subscription_status === 'payment_pending'
+                    ? 'Waiting for M-Pesa confirmation'
+                    : `Expired on ${s.subscription_end}`}
+            </p>`;
+
+        // If subscription just activated, stop polling and show success
+        if (active && pollInterval) {
+            clearInterval(pollInterval);
+            pollInterval = null;
+            showMsg('🎉 Subscription activated successfully!', 'success');
+            document.getElementById('pendingState').style.display = 'none';
+            document.getElementById('payAction').style.display    = 'block';
+            loadHistory();
+        }
+
+    } catch (err) {
+        // Silent fail on status check — don't interrupt UX
+    }
+}
+
+// ---- Initiate payment (STK Push) ---------------------------
+document.getElementById('payBtn').addEventListener('click', initiatePayment);
+
+async function initiatePayment() {
+    const btn     = document.getElementById('payBtn');
+    const btnText = document.getElementById('payBtnText');
+    const spinner = document.getElementById('payBtnSpinner');
+
+    btn.disabled      = true;
+    btnText.textContent = 'Sending prompt…';
+    spinner.style.display = 'inline-block';
+    hideMsg();
+
+    try {
+        const res = await fetch(`${API}/payments/initiate`, {
+            method:  'POST',
+            headers: authHeaders(),
+            body:    JSON.stringify({ amount: 500 }),
+        });
+
+        if (res.status === 401) { handleUnauthorised(); return; }
+
+        const data = await res.json();
+
+        if (res.status === 201 && data.success) {
+            // Payment created as 'pending' — show waiting state
+            showMsg(
+                'M-Pesa prompt sent to your phone. Enter your PIN to confirm.',
+                'info'
+            );
+            document.getElementById('payAction').style.display    = 'none';
+            document.getElementById('pendingState').style.display = 'block';
+
+            // Poll every 5 seconds for subscription activation
+            pollInterval = setInterval(loadSubscription, 5000);
+
+        } else if (res.status === 409) {
+            // Duplicate pending payment
+            showMsg(
+                data.message ||
+                'A payment is already pending. Please complete the M-Pesa prompt on your phone.',
+                'info'
+            );
+            document.getElementById('payAction').style.display    = 'none';
+            document.getElementById('pendingState').style.display = 'block';
+            pollInterval = setInterval(loadSubscription, 5000);
+        } else {
+            showMsg(data.message || 'Payment initiation failed. Please try again.', 'error');
+            btn.disabled          = false;
+            btnText.textContent   = 'Pay KES 500';
+            spinner.style.display = 'none';
+        }
+
+    } catch (err) {
+        showMsg('Could not reach the server. Please try again.', 'error');
+        btn.disabled          = false;
+        btnText.textContent   = 'Pay KES 500';
+        spinner.style.display = 'none';
+    }
+}
+
+function cancelPending() {
+    if (pollInterval) { clearInterval(pollInterval); pollInterval = null; }
+    document.getElementById('pendingState').style.display = 'none';
+    document.getElementById('payAction').style.display    = 'block';
+    const btn     = document.getElementById('payBtn');
+    const btnText = document.getElementById('payBtnText');
+    const spinner = document.getElementById('payBtnSpinner');
+    btn.disabled          = false;
+    btnText.textContent   = 'Pay KES 500';
+    spinner.style.display = 'none';
+    hideMsg();
+}
+
+// ---- Load payment history ----------------------------------
+// GET /api/payments/history
+// mpesa_ref included — resident has right to own refs
+async function loadHistory() {
+    try {
+        const res = await fetch(`${API}/payments/history`, {
+            headers: authHeaders(),
+        });
+        if (res.status === 401) { handleUnauthorised(); return; }
+
+        const data = await res.json();
+        const el   = document.getElementById('payHistory');
+
+        if (!data.success || !data.data?.length) {
+            el.innerHTML =
+                '<p style="font-size:12px;color:var(--gray)">No payment history yet.</p>';
+            return;
+        }
+
+        el.innerHTML = data.data.map(p => `
+            <div class="inc-row">
+                <div class="dot dot-${p.payment_status === 'completed'
+                    ? 'resolved' : p.payment_status === 'pending'
+                    ? 'review' : 'new'}"></div>
+                <div class="inc-info">
+                    <div class="inc-title">
+                        KES ${p.amount}
+                        ${p.mpesa_ref ? `· ${p.mpesa_ref}` : ''}
+                    </div>
+                    <div class="inc-sub">${p.paid_at}</div>
+                </div>
+                <span class="badge ${p.payment_status === 'completed'
+                    ? 'b-resolved' : p.payment_status === 'pending'
+                    ? 'b-review' : 'b-failed'}">
+                    ${p.payment_status}
+                </span>
+            </div>`).join('');
+
+    } catch (err) {
+        document.getElementById('payHistory').innerHTML =
+            '<p style="font-size:12px;color:var(--gray)">Could not load history.</p>';
+    }
+}
+
+function showMsg(text, type) {
+    const msg     = document.getElementById('subMsg');
+    msg.textContent = text;
+    msg.className = `msg ${type}`;
+    msg.style.display = 'block';
+    if (type === 'success') {
+        setTimeout(() => { msg.style.display = 'none'; }, 6000);
+    }
+}
+function hideMsg() {
+    document.getElementById('subMsg').style.display = 'none';
+}
+
+// ---- Init --------------------------------------------------
+loadSubscription();
+loadHistory();
+</script>
+</body>
+</html>

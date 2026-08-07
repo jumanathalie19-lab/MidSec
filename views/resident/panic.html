@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Midview — Emergency</title>
+<link rel="stylesheet" href="../../css/main.css"/>
+</head>
+<body>
+<div class="app">
+
+  <!-- Top bar -->
+  <div class="topbar">
+    <a class="back" href="dashboard.html">←</a>
+    <h1>Emergency alert</h1>
+  </div>
+
+  <div class="body">
+
+    <!-- Alert message area -->
+    <div id="panicMsg" class="msg" role="alert" aria-live="assertive"></div>
+
+    <!-- Panic Button Card -->
+    <div class="card" style="border-color:rgba(224,62,62,0.3);
+                             background:rgba(224,62,62,0.06);
+                             text-align:center;padding:32px 16px">
+      <div id="panicBtn"
+           role="button"
+           tabindex="0"
+           aria-label="Send panic alert"
+           style="width:96px;height:96px;border-radius:50%;
+                  background:var(--danger);margin:0 auto 16px;
+                  display:flex;align-items:center;justify-content:center;
+                  cursor:pointer;animation:panic-pulse 2s infinite">
+        <svg style="width:42px;height:42px;stroke:#fff;fill:none;stroke-width:1.5"
+             viewBox="0 0 24 24">
+          <path d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71
+                   3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+        </svg>
+      </div>
+      <p style="font-family:var(--font-head);font-size:16px;
+                font-weight:700;color:var(--danger2)">
+        Tap to send panic alert
+      </p>
+      <p style="font-size:12px;color:rgba(255,107,107,0.6);
+                margin-top:6px;line-height:1.6">
+        Guard is notified instantly with your GPS location
+      </p>
+    </div>
+
+    <!-- GPS status -->
+    <div class="map-box" id="gpsBox">
+      <svg viewBox="0 0 24 24">
+        <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75
+                 7-13c0-3.87-3.13-7-7-7z"/>
+        <circle cx="12" cy="9" r="2.5"/>
+      </svg>
+      <span id="gpsText">Getting your location…</span>
+    </div>
+
+    <!-- GPS warning (shown only when GPS fails) -->
+    <div id="gpsWarning" class="msg error"
+         style="display:none;font-size:12px;">
+      ⚠️ Could not get your exact location. An approximate location
+      will be used. Please describe your location in the incident
+      description below.
+    </div>
+
+    <!-- Incident Report Form -->
+    <div class="card">
+      <h3>Or report an incident</h3>
+      <div style="display:flex;flex-direction:column;gap:12px;margin-top:4px">
+
+        <div class="field">
+          <label for="incidentType">Incident type</label>
+          <select id="incidentType">
+            <option value="suspicious_activity">Suspicious activity</option>
+            <option value="theft_breakin">Theft / break-in</option>
+            <option value="property_damage">Property damage</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label for="description">Description</label>
+          <textarea id="description"
+                    placeholder="Describe briefly what you observed…"
+                    maxlength="1000"></textarea>
+          <small style="font-size:11px;color:var(--gray)">
+            <span id="descCount">0</span>/1000
+          </small>
+        </div>
+
+        <button class="btn btn-primary" id="reportBtn">
+          Submit incident report
+        </button>
+
+      </div>
+    </div>
+
+    <!-- My Recent Reports -->
+    <div class="card">
+      <h3>My report status</h3>
+      <div id="myReports">
+        <div class="loading"><div class="spinner"></div></div>
+      </div>
+    </div>
+
+    <!-- My Panic History -->
+    <div class="card">
+      <h3>My panic alerts</h3>
+      <div id="myPanics">
+        <div class="loading"><div class="spinner"></div></div>
+      </div>
+    </div>
+
+  </div><!-- /body -->
+
+  <!-- Bottom Nav -->
+  <div class="bottomnav">
+    <button class="navitem" onclick="window.location.href='dashboard.html'">
+      <svg viewBox="0 0 24 24">
+        <path d="M3 12l9-9 9 9M5 10v9a1 1 0 001 1h4v-5h4v5h4a1 1 0 001-1v-9"/>
+      </svg>
+      <span>Home</span>
+    </button>
+    <div class="panic-wrap">
+      <div class="panic-circle">
+        <svg viewBox="0 0 24 24">
+          <path d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71
+                   3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+        </svg>
+      </div>
+      <span>PANIC</span>
+    </div>
+    <button class="navitem" onclick="window.location.href='subscription.html'">
+      <svg viewBox="0 0 24 24">
+        <rect x="2" y="5" width="20" height="14" rx="2"/>
+        <line x1="2" y1="10" x2="22" y2="10"/>
+      </svg>
+      <span>Pay</span>
+    </button>
+    <button class="navitem" onclick="window.location.href='profile.html'">
+      <svg viewBox="0 0 24 24">
+        <circle cx="12" cy="8" r="4"/>
+        <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
+      </svg>
+      <span>Profile</span>
+    </button>
+  </div>
+
+</div><!-- /app -->
+
+<script>
+// ============================================================
+//  Midview — Panic / Emergency Page
+//  Auth:  JWT from localStorage
+//  APIs:  POST /api/panic          — trigger panic
+//         POST /api/incidents      — report incident
+//         GET  /api/incidents/user — my incident history
+//         GET  /api/panic/my       — my panic history
+// ============================================================
+const API = 'http://localhost/midview-security-app/api';
+
+// ---- Auth guard --------------------------------------------
+const token = localStorage.getItem('midview_token');
+const user  = JSON.parse(localStorage.getItem('midview_user') || 'null');
+if (!token || !user || user.role !== 'resident') {
+    window.location.href = '../shared/login.html';
+}
+
+function authHeaders() {
+    return {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type':  'application/json',
+    };
+}
+
+function handleUnauthorised() {
+    localStorage.removeItem('midview_token');
+    localStorage.removeItem('midview_user');
+    window.location.href = '../shared/login.html';
+}
+
+// ---- GPS ----------------------------------------------------
+let userLat  = null;
+let userLng  = null;
+let gpsReady = false;
+
+navigator.geolocation.getCurrentPosition(
+    pos => {
+        userLat  = pos.coords.latitude;
+        userLng  = pos.coords.longitude;
+        gpsReady = true;
+        document.getElementById('gpsText').textContent =
+            `Location ready (${userLat.toFixed(5)}, ${userLng.toFixed(5)})`;
+    },
+    () => {
+        // Fallback to Midview Court approximate coordinates
+        userLat  = -1.2782;
+        userLng  = 36.9422;
+        gpsReady = false;
+        document.getElementById('gpsText').textContent =
+            'Using approximate location';
+        document.getElementById('gpsWarning').style.display = 'block';
+    },
+    { timeout: 8000, enableHighAccuracy: true }
+);
+
+// ---- Character counter -------------------------------------
+document.getElementById('description').addEventListener('input', function () {
+    document.getElementById('descCount').textContent = this.value.length;
+});
+
+// ---- Panic Button ------------------------------------------
+// Keyboard accessible: Enter / Space also triggers
+const panicBtn = document.getElementById('panicBtn');
+panicBtn.addEventListener('click',    triggerPanic);
+panicBtn.addEventListener('keydown', e => {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); triggerPanic(); }
+});
+
+async function triggerPanic() {
+    // Disable immediately to prevent double-tap
+    panicBtn.style.opacity       = '.5';
+    panicBtn.style.pointerEvents = 'none';
+    panicBtn.setAttribute('aria-disabled', 'true');
+
+    showMsg('Sending panic alert…', 'info');
+
+    try {
+        const res = await fetch(`${API}/panic`, {
+            method:  'POST',
+            headers: authHeaders(),
+            body:    JSON.stringify({
+                latitude:  userLat  ?? -1.2782,
+                longitude: userLng  ?? 36.9422,
+            }),
+        });
+
+        if (res.status === 401) { handleUnauthorised(); return; }
+
+        const data = await res.json();
+
+        if (res.ok && data.success) {
+            showMsg(
+                '🚨 Panic alert sent! A guard has been notified with your location.',
+                'success'
+            );
+            loadMyPanics();
+        } else if (res.status === 409) {
+            // Duplicate active panic — reassure rather than error
+            showMsg(
+                '✅ Help is already on the way. Your previous alert is still active.',
+                'info'
+            );
+        } else {
+            showMsg(data.message || 'Failed to send alert. Please try again.', 'error');
+        }
+
+    } catch (err) {
+        showMsg('Could not reach the server. Please call security directly.', 'error');
+    } finally {
+        // Re-enable after 5s to allow re-trigger if genuinely needed
+        setTimeout(() => {
+            panicBtn.style.opacity       = '1';
+            panicBtn.style.pointerEvents = 'auto';
+            panicBtn.removeAttribute('aria-disabled');
+        }, 5000);
+    }
+}
+
+// ---- Submit Incident Report --------------------------------
+document.getElementById('reportBtn').addEventListener('click', submitReport);
+
+async function submitReport() {
+    const type = document.getElementById('incidentType').value;
+    const desc = document.getElementById('description').value.trim();
+    const btn  = document.getElementById('reportBtn');
+
+    if (!desc) {
+        showMsg('Please describe the incident before submitting.', 'error');
+        return;
+    }
+
+    btn.disabled    = true;
+    btn.textContent = 'Submitting…';
+    hideMsg();
+
+    try {
+        const res = await fetch(`${API}/incidents`, {
+            method:  'POST',
+            headers: authHeaders(),
+            body:    JSON.stringify({
+                incident_type: type,
+                description:   desc,
+                latitude:      userLat  ?? -1.2782,
+                longitude:     userLng  ?? 36.9422,
+            }),
+        });
+
+        if (res.status === 401) { handleUnauthorised(); return; }
+
+        const data = await res.json();
+
+        if (res.status === 201 && data.success) {
+            showMsg('Incident reported successfully!', 'success');
+            document.getElementById('description').value = '';
+            document.getElementById('descCount').textContent = '0';
+            loadMyReports();
+        } else {
+            showMsg(data.message || 'Failed to submit report.', 'error');
+        }
+
+    } catch (err) {
+        showMsg('Could not reach the server.', 'error');
+    } finally {
+        btn.disabled    = false;
+        btn.textContent = 'Submit incident report';
+    }
+}
+
+// ---- Load My Recent Incidents ------------------------------
+async function loadMyReports() {
+    try {
+        const res = await fetch(`${API}/incidents/user`, {
+            headers: authHeaders(),
+        });
+        if (res.status === 401) { handleUnauthorised(); return; }
+
+        const data = await res.json();
+        const el   = document.getElementById('myReports');
+
+        if (!data.success || !data.data?.length) {
+            el.innerHTML =
+                '<p style="font-size:12px;color:var(--gray)">No reports yet.</p>';
+            return;
+        }
+
+        const typeMap = {
+            suspicious_activity: 'Suspicious activity',
+            theft_breakin:       'Theft / break-in',
+            property_damage:     'Property damage',
+        };
+        const badge = s => ({
+            open:         '<span class="badge b-open">Open</span>',
+            under_review: '<span class="badge b-review">Under review</span>',
+            resolved:     '<span class="badge b-resolved">Resolved</span>',
+        }[s] || s);
+
+        el.innerHTML = data.data.slice(0, 3).map(i => `
+            <div class="inc-row">
+                <div class="dot dot-${i.status === 'under_review' ? 'review' : i.status}"></div>
+                <div class="inc-info">
+                    <div class="inc-title">${typeMap[i.incident_type] || i.incident_type}</div>
+                    <div class="inc-sub">${i.reported_at}</div>
+                </div>
+                ${badge(i.status)}
+            </div>`).join('');
+
+    } catch (err) {
+        document.getElementById('myReports').innerHTML =
+            '<p style="font-size:12px;color:var(--gray)">Could not load reports.</p>';
+    }
+}
+
+// ---- Load My Panic Alerts ----------------------------------
+// Calls GET /api/panic/my — resident self-view, no stream_url
+async function loadMyPanics() {
+    try {
+        const res = await fetch(`${API}/panic/my`, {
+            headers: authHeaders(),
+        });
+        if (res.status === 401) { handleUnauthorised(); return; }
+
+        const data = await res.json();
+        const el   = document.getElementById('myPanics');
+
+        if (!data.success || !data.data?.length) {
+            el.innerHTML =
+                '<p style="font-size:12px;color:var(--gray)">No panic alerts yet.</p>';
+            return;
+        }
+
+        const statusBadge = s => ({
+            active:    '<span class="badge b-open">Active</span>',
+            responded: '<span class="badge b-review">Responded</span>',
+            closed:    '<span class="badge b-resolved">Closed</span>',
+        }[s] || s);
+
+        el.innerHTML = data.data.slice(0, 3).map(p => `
+            <div class="inc-row">
+                <div class="dot dot-${p.status === 'responded' ? 'review'
+                                   : p.status === 'closed'    ? 'resolved'
+                                   : 'new'}"></div>
+                <div class="inc-info">
+                    <div class="inc-title">Panic alert</div>
+                    <div class="inc-sub">${p.triggered_at}
+                        ${p.responding_guard
+                            ? ` · Guard: ${p.responding_guard}` : ''}
+                    </div>
+                </div>
+                ${statusBadge(p.status)}
+            </div>`).join('');
+
+    } catch (err) {
+        document.getElementById('myPanics').innerHTML =
+            '<p style="font-size:12px;color:var(--gray)">Could not load panic history.</p>';
+    }
+}
+
+// ---- Helpers -----------------------------------------------
+function showMsg(text, type) {
+    const msg       = document.getElementById('panicMsg');
+    msg.textContent = text;
+    msg.className   = `msg ${type}`;
+    msg.style.display = 'block';
+    if (type !== 'info') {
+        setTimeout(() => { msg.style.display = 'none'; }, 6000);
+    }
+}
+function hideMsg() {
+    document.getElementById('panicMsg').style.display = 'none';
+}
+
+// ---- Init --------------------------------------------------
+loadMyReports();
+loadMyPanics();
+</script>
+</body>
+</html>

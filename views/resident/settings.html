@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Midview — Settings</title>
+<link rel="stylesheet" href="../../css/main.css"/>
+</head>
+<body>
+<div class="app">
+
+  <div class="topbar">
+    <a class="back" href="profile.html">←</a>
+    <h1>Settings</h1>
+  </div>
+
+  <div class="body">
+
+    <!-- Notifications (UI-only preferences stored locally) -->
+    <div class="card">
+      <h3>Notifications</h3>
+      <p style="font-size:11px;color:var(--gray);margin-bottom:12px">
+        Notification preferences are managed by the estate admin.
+        In-app alerts are always enabled for security events.
+      </p>
+      <div class="set-row">
+        <div>
+          <div class="set-lbl">Incident status updates</div>
+          <div class="set-sub">When your report changes status</div>
+        </div>
+        <!-- Always on — security notifications cannot be disabled -->
+        <div class="toggle on" style="opacity:.5;pointer-events:none"></div>
+      </div>
+      <div class="set-row">
+        <div>
+          <div class="set-lbl">Court-wide alerts</div>
+          <div class="set-sub">Security notices from admin</div>
+        </div>
+        <div class="toggle on" style="opacity:.5;pointer-events:none"></div>
+      </div>
+    </div>
+
+    <!-- Privacy -->
+    <div class="card">
+      <h3>Privacy</h3>
+      <div class="set-row">
+        <div>
+          <div class="set-lbl">GPS location on panic alert</div>
+          <div class="set-sub">
+            Required for emergency response — always enabled
+          </div>
+        </div>
+        <!-- GPS for panic is mandatory — cannot be disabled -->
+        <div class="toggle on" style="opacity:.5;pointer-events:none"></div>
+      </div>
+      <p style="font-size:11px;color:var(--gray);margin-top:8px;line-height:1.6">
+        Your GPS location is only shared with security guards
+        when you trigger a panic alert.
+        It is never shared with other residents.
+      </p>
+    </div>
+
+    <!-- Account -->
+    <div class="card">
+      <h3>Account</h3>
+
+      <div class="set-row" onclick="showComingSoon('Password changes')">
+        <div class="set-lbl">Change password</div>
+        <span class="set-arr">›</span>
+      </div>
+
+      <div class="set-row" onclick="showComingSoon('Phone number updates')">
+        <div class="set-lbl">Update phone number</div>
+        <span class="set-arr">›</span>
+      </div>
+
+      <div class="set-row" onclick="confirmDeleteAccount()"
+           style="cursor:pointer">
+        <div class="set-lbl" style="color:var(--danger)">
+          Request account deactivation
+        </div>
+        <span class="set-arr" style="color:var(--danger)">›</span>
+      </div>
+
+      <p style="font-size:11px;color:var(--gray);margin-top:8px;line-height:1.6">
+        Account changes require admin approval.
+        Contact the estate management office for assistance.
+      </p>
+    </div>
+
+    <!-- App info -->
+    <div class="card">
+      <h3>About</h3>
+      <div class="set-row" style="cursor:default">
+        <div class="set-lbl">Version</div>
+        <span style="font-size:12px;color:var(--gray)">1.0.0</span>
+      </div>
+      <div class="set-row" style="cursor:default">
+        <div class="set-lbl">Estate</div>
+        <span style="font-size:12px;color:var(--gray)">Midview Court</span>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Coming soon toast -->
+<div id="toast"
+     style="display:none;position:fixed;bottom:90px;left:50%;
+            transform:translateX(-50%);background:rgba(0,0,0,.8);
+            color:#fff;padding:10px 20px;border-radius:20px;
+            font-size:12px;z-index:999;white-space:nowrap">
+</div>
+
+<script>
+// ============================================================
+//  Midview — Settings Page
+//  Auth: JWT from localStorage
+//  Note: Most settings are UI-only pending backend support.
+// ============================================================
+const token = localStorage.getItem('midview_token');
+const user  = JSON.parse(localStorage.getItem('midview_user') || 'null');
+if (!token || !user || user.role !== 'resident') {
+    window.location.href = '../shared/login.html';
+}
+
+function showComingSoon(feature) {
+    const toast = document.getElementById('toast');
+    toast.textContent  = `${feature} — contact the estate admin`;
+    toast.style.display = 'block';
+    setTimeout(() => { toast.style.display = 'none'; }, 3000);
+}
+
+function confirmDeleteAccount() {
+    if (confirm(
+        'To request account deactivation, please contact the estate admin directly. ' +
+        'Would you like to sign out now?'
+    )) {
+        localStorage.removeItem('midview_token');
+        localStorage.removeItem('midview_user');
+        window.location.href = '../shared/login.html';
+    }
+}
+</script>
+</body>
+</html>

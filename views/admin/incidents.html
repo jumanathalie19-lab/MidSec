@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Midview Admin — Incidents</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root{--bg:#0d1117;--surface:#161b22;--border:rgba(255,255,255,.08);
+        --text:#e6edf3;--gray:#7d8590;--accent:#58a6ff;
+        --danger2:#ff7b72;--success:#3fb950;--warn:#d29922;
+        --navy:#102a43;--gold:#d4a017;
+        --font-head:'Syne',sans-serif;--font-body:'DM Sans',sans-serif;}
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{background:var(--bg);color:var(--text);font-family:var(--font-body);
+       min-height:100vh;display:flex;flex-direction:column;}
+  .topbar{background:var(--navy);padding:14px 20px;display:flex;
+          align-items:center;gap:10px;position:sticky;top:0;z-index:100;
+          border-bottom:1px solid rgba(255,255,255,.06);}
+  .back{background:none;border:none;color:#fff;font-size:20px;cursor:pointer;}
+  .topbar h1{font-family:var(--font-head);font-size:16px;font-weight:700;flex:1;}
+  .main{flex:1;padding:16px;max-width:900px;margin:0 auto;width:100%;}
+  .tabs{display:flex;gap:4px;background:var(--surface);border-radius:10px;
+        padding:4px;margin-bottom:14px;}
+  .tab{flex:1;padding:8px;text-align:center;font-size:12px;border-radius:8px;
+       cursor:pointer;border:none;background:transparent;color:var(--gray);
+       font-family:var(--font-body);}
+  .tab.active{background:var(--accent);color:#0d1117;font-weight:600;}
+  .filters{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;}
+  .filter-btn{background:var(--surface);border:1px solid var(--border);
+              color:var(--gray);padding:5px 12px;border-radius:20px;
+              font-size:12px;cursor:pointer;font-family:var(--font-body);}
+  .filter-btn.active{background:var(--accent);color:#0d1117;
+                     border-color:var(--accent);font-weight:600;}
+  .inc-card{background:var(--surface);border:1px solid var(--border);
+            border-radius:12px;padding:14px;margin-bottom:10px;cursor:pointer;
+            transition:border-color .2s;}
+  .inc-card:hover{border-color:rgba(88,166,255,.3);}
+  .inc-card.deleted{opacity:.45;border-style:dashed;}
+  .inc-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;}
+  .inc-type{font-weight:600;font-size:14px;}
+  .inc-meta{font-size:11px;color:var(--gray);display:flex;gap:10px;flex-wrap:wrap;margin-top:4px;}
+  .inc-desc{font-size:12px;color:var(--gray);margin-top:6px;
+            white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .badge{font-size:10px;font-weight:600;padding:3px 8px;border-radius:10px;white-space:nowrap;}
+  .b-open{background:rgba(248,81,73,.15);color:var(--danger2);}
+  .b-review{background:rgba(210,153,34,.15);color:var(--warn);}
+  .b-resolved{background:rgba(63,185,80,.15);color:var(--success);}
+  .b-deleted{background:rgba(125,133,144,.1);color:var(--gray);}
+  .overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);
+           z-index:200;align-items:flex-end;}
+  .overlay.open{display:flex;}
+  .sheet{background:var(--surface);border-radius:16px 16px 0 0;
+         width:100%;max-height:88vh;overflow-y:auto;padding:20px;}
+  .sheet-handle{width:40px;height:4px;background:var(--border);
+                border-radius:2px;margin:0 auto 16px;}
+  .sheet h2{font-family:var(--font-head);font-size:16px;font-weight:700;margin-bottom:14px;}
+  .detail-row{display:flex;justify-content:space-between;
+              padding:8px 0;border-bottom:1px solid var(--border);font-size:13px;}
+  .detail-row:last-child{border-bottom:none;}
+  .detail-label{color:var(--gray);}
+  .field{display:flex;flex-direction:column;gap:6px;margin-bottom:12px;}
+  .field label{font-size:12px;color:var(--gray);}
+  .field textarea,.field input{
+    background:rgba(255,255,255,.05);border:1px solid var(--border);
+    border-radius:8px;padding:10px 12px;color:var(--text);
+    font-family:var(--font-body);font-size:13px;width:100%;}
+  .field textarea:focus,.field input:focus{outline:none;border-color:var(--accent);}
+  .btn{padding:10px 14px;border-radius:8px;font-size:13px;font-weight:500;
+       cursor:pointer;border:none;font-family:var(--font-body);
+       transition:opacity .2s;width:100%;margin-bottom:8px;}
+  .btn:disabled{opacity:.5;cursor:not-allowed;}
+  .btn-danger-full{background:rgba(248,81,73,.1);color:var(--danger2);
+                   border:1px solid rgba(248,81,73,.3);}
+  .btn-success-full{background:rgba(63,185,80,.1);color:var(--success);
+                    border:1px solid rgba(63,185,80,.3);}
+  .btn-ghost{background:transparent;color:var(--gray);border:1px solid var(--border);}
+  .btn:hover:not(:disabled){opacity:.8;}
+  .bottomnav{position:sticky;bottom:0;background:var(--surface);
+             border-top:1px solid var(--border);
+             display:flex;justify-content:space-around;padding:10px 0 14px;}
+  .navitem{display:flex;flex-direction:column;align-items:center;gap:3px;
+           background:none;border:none;color:var(--gray);cursor:pointer;
+           font-family:var(--font-body);font-size:10px;padding:4px 10px;}
+  .navitem svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.5;}
+  .navitem.active{color:var(--gold);}
+  .loading{display:flex;align-items:center;gap:8px;font-size:12px;
+           color:var(--gray);padding:8px 0;}
+  .spinner{width:14px;height:14px;border:2px solid var(--border);
+           border-top-color:var(--accent);border-radius:50%;
+           animation:spin .7s linear infinite;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+  .msg{padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:12px;display:none;}
+  .msg.success{background:rgba(63,185,80,.1);color:var(--success);
+               border:1px solid rgba(63,185,80,.2);display:block;}
+  .msg.error{background:rgba(248,81,73,.1);color:var(--danger2);
+             border:1px solid rgba(248,81,73,.2);display:block;}
+  .empty{font-size:12px;color:var(--gray);text-align:center;padding:12px 0;}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <button class="back" onclick="goto('dashboard.html')">←</button>
+  <h1>Incidents</h1>
+  <span style="font-size:12px;color:var(--gray)" id="countLabel"></span>
+</div>
+
+<div class="main">
+  <div id="msgBox" class="msg"></div>
+
+  <div class="tabs">
+    <button class="tab active" onclick="showTab('active')">Active</button>
+    <button class="tab"        onclick="showTab('deleted')">Deleted archive</button>
+  </div>
+
+  <!-- Active tab -->
+  <div id="tabActive">
+    <div class="filters">
+      <button class="filter-btn active" data-status="">All</button>
+      <button class="filter-btn" data-status="open">Open</button>
+      <button class="filter-btn" data-status="under_review">Under review</button>
+      <button class="filter-btn" data-status="resolved">Resolved</button>
+    </div>
+    <div id="activeList">
+      <div class="loading"><div class="spinner"></div> Loading…</div>
+    </div>
+  </div>
+
+  <!-- Deleted archive tab -->
+  <div id="tabDeleted" style="display:none;">
+    <p style="font-size:12px;color:var(--gray);margin-bottom:10px;">
+      Soft-deleted incident records retained for KDPA 2019 compliance.
+    </p>
+    <div id="deletedList">
+      <div class="loading"><div class="spinner"></div> Loading…</div>
+    </div>
+  </div>
+</div>
+
+<!-- Detail / action sheet -->
+<div class="overlay" id="overlay" onclick="closeSheet(event)">
+  <div class="sheet" id="sheet">
+    <div class="sheet-handle"></div>
+    <h2 id="sheetTitle">Incident</h2>
+    <div id="sheetDetail"></div>
+
+    <!-- Soft-delete form (hidden by default) -->
+    <div id="deleteForm" style="display:none;margin-top:14px;">
+      <div class="field">
+        <label>Reason for deletion (required)</label>
+        <textarea id="deleteReason" rows="3"
+                  placeholder="Document why this incident is being removed from active view…"
+                  maxlength="500"></textarea>
+      </div>
+      <button class="btn btn-danger-full" id="deleteBtn"
+              onclick="submitDelete()">Soft-delete incident</button>
+      <button class="btn btn-ghost" onclick="hideDeleteForm()">Cancel</button>
+    </div>
+
+    <!-- Restore form (shown for deleted incidents) -->
+    <div id="restoreForm" style="display:none;margin-top:14px;">
+      <div class="field">
+        <label>Reason for restoration (required)</label>
+        <textarea id="restoreReason" rows="3"
+                  placeholder="Document why this incident is being restored…"
+                  maxlength="500"></textarea>
+      </div>
+      <button class="btn btn-success-full" id="restoreBtn"
+              onclick="submitRestore()">Restore incident</button>
+      <button class="btn btn-ghost" onclick="hideRestoreForm()">Cancel</button>
+    </div>
+
+    <!-- Action buttons -->
+    <div id="sheetActions" style="margin-top:14px;display:flex;
+         flex-direction:column;gap:8px;"></div>
+  </div>
+</div>
+
+<!-- Bottom nav -->
+<div class="bottomnav">
+  <button class="navitem" onclick="goto('dashboard.html')">
+    <svg viewBox="0 0 24 24"><path d="M3 12l9-9 9 9M5 10v9a1 1 0 001 1h4v-5h4v5h4a1 1 0 001-1v-9"/></svg>
+    Home
+  </button>
+  <button class="navitem" onclick="goto('residents.html')">
+    <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+    Residents
+  </button>
+  <button class="navitem active" onclick="goto('incidents.html')">
+    <svg viewBox="0 0 24 24"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+    Incidents
+  </button>
+  <button class="navitem" onclick="goto('payments.html')">
+    <svg viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
+    Payments
+  </button>
+  <button class="navitem" onclick="goto('reports.html')">
+    <svg viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+    Reports
+  </button>
+</div>
+
+<script>
+const API = 'http://localhost/midview-security-app/api';
+const token = localStorage.getItem('midview_token');
+const user  = JSON.parse(localStorage.getItem('midview_user') || 'null');
+if (!token || !user || user.role !== 'admin') {
+  window.location.href = '../shared/login.html';
+}
+function authHeaders() {
+  return { 'Authorization':`Bearer ${token}`, 'Content-Type':'application/json' };
+}
+function handleUnauth() {
+  localStorage.removeItem('midview_token');
+  localStorage.removeItem('midview_user');
+  window.location.href = '../shared/login.html';
+}
+function goto(p) { window.location.href = p; }
+
+let currentTab   = 'active';
+let currentId    = null;
+let activeStatus = '';
+
+const typeLabel = t => ({
+  suspicious_activity:'Suspicious activity',
+  theft_breakin:'Theft / break-in',
+  property_damage:'Property damage',
+}[t]||t);
+
+const badgeHtml = s => ({
+  open:'<span class="badge b-open">Open</span>',
+  under_review:'<span class="badge b-review">Under review</span>',
+  resolved:'<span class="badge b-resolved">Resolved</span>',
+}[s]||s);
+
+function timeAgo(d) {
+  const s=Math.floor((Date.now()-new Date(d))/1000);
+  if(s<60) return `${s}s ago`;
+  if(s<3600) return `${Math.floor(s/60)}m ago`;
+  if(s<86400) return `${Math.floor(s/3600)}h ago`;
+  return `${Math.floor(s/86400)}d ago`;
+}
+
+// ---- Tabs --------------------------------------------------
+function showTab(tab) {
+  currentTab = tab;
+  document.getElementById('tabActive').style.display  = tab==='active'  ? 'block':'none';
+  document.getElementById('tabDeleted').style.display = tab==='deleted' ? 'block':'none';
+  document.querySelectorAll('.tab').forEach((b,i)=>{
+    b.classList.toggle('active',['active','deleted'][i]===tab);
+  });
+  if (tab==='active')  loadActive();
+  if (tab==='deleted') loadDeleted();
+}
+
+// ---- Status filter pills -----------------------------------
+document.querySelectorAll('[data-status]').forEach(btn => {
+  btn.addEventListener('click', function() {
+    document.querySelectorAll('[data-status]').forEach(b=>b.classList.remove('active'));
+    this.classList.add('active');
+    activeStatus = this.dataset.status;
+    loadActive();
+  });
+});
+
+// ---- Load active incidents ---------------------------------
+async function loadActive() {
+  const el  = document.getElementById('activeList');
+  el.innerHTML = '<div class="loading"><div class="spinner"></div> Loading…</div>';
+  let url = `${API}/incidents`;
+  if (activeStatus) url += `?status=${activeStatus}`;
+
+  try {
+    const res  = await fetch(url, { headers: authHeaders() });
+    if (res.status===401) { handleUnauth(); return; }
+    const data = await res.json();
+
+    if (!data.success||!data.data?.length) {
+      document.getElementById('countLabel').textContent='0 incidents';
+      el.innerHTML='<p class="empty">No incidents.</p>'; return;
+    }
+    const list=data.data;
+    document.getElementById('countLabel').textContent=`${list.length} incidents`;
+
+    el.innerHTML=list.map(i=>`
+      <div class="inc-card" onclick="openIncident(${i.incident_id},false)">
+        <div class="inc-top">
+          <span class="inc-type">${typeLabel(i.incident_type)}</span>
+          ${badgeHtml(i.status)}
+        </div>
+        <div class="inc-meta">
+          <span>🏠 ${i.house_no}</span>
+          <span>👤 ${i.resident_name}</span>
+          <span>⏱ ${timeAgo(i.reported_at)}</span>
+          ${i.guard_name?`<span>👮 ${i.guard_name}</span>`:''}
+        </div>
+        ${i.description?`<div class="inc-desc">${i.description}</div>`:''}
+      </div>`).join('');
+  } catch {
+    el.innerHTML='<p class="empty">Could not load.</p>';
+  }
+}
+
+// ---- Load deleted incidents --------------------------------
+async function loadDeleted() {
+  const el=document.getElementById('deletedList');
+  el.innerHTML='<div class="loading"><div class="spinner"></div> Loading…</div>';
+  try {
+    const res  = await fetch(`${API}/incidents/deleted`, { headers: authHeaders() });
+    if (res.status===401) { handleUnauth(); return; }
+    const data = await res.json();
+
+    if (!data.success||!data.data?.length) {
+      el.innerHTML='<p class="empty">No deleted incidents.</p>'; return;
+    }
+    el.innerHTML=data.data.map(i=>`
+      <div class="inc-card deleted" onclick="openIncident(${i.incident_id},true)">
+        <div class="inc-top">
+          <span class="inc-type">${typeLabel(i.incident_type)}</span>
+          <span class="badge b-deleted">Deleted</span>
+        </div>
+        <div class="inc-meta">
+          <span>🏠 ${i.house_no}</span>
+          <span>👤 ${i.reported_by}</span>
+          <span>🗑 ${timeAgo(i.deleted_at)} by ${i.deleted_by_name}</span>
+        </div>
+      </div>`).join('');
+  } catch {
+    el.innerHTML='<p class="empty">Could not load.</p>';
+  }
+}
+
+// ---- Open incident detail ----------------------------------
+async function openIncident(id, isDeleted) {
+  currentId = id;
+  document.getElementById('deleteForm').style.display  = 'none';
+  document.getElementById('restoreForm').style.display = 'none';
+  document.getElementById('sheetDetail').innerHTML =
+    '<div class="loading"><div class="spinner"></div></div>';
+  document.getElementById('overlay').classList.add('open');
+
+  try {
+    const res  = await fetch(`${API}/incidents/${id}`, { headers: authHeaders() });
+    if (res.status===401) { handleUnauth(); return; }
+    const data = await res.json();
+    if (!data.success) return;
+    const i = data.data;
+    document.getElementById('sheetTitle').textContent = typeLabel(i.incident_type);
+
+    document.getElementById('sheetDetail').innerHTML=`
+      <div class="detail-row"><span class="detail-label">Status</span>${badgeHtml(i.status)}</div>
+      <div class="detail-row"><span class="detail-label">Resident</span>
+        <span>${i.resident_name} · 🏠 ${i.house_no}</span></div>
+      <div class="detail-row"><span class="detail-label">Phone</span>
+        <a href="tel:${i.resident_phone}" style="color:var(--accent)">${i.resident_phone}</a></div>
+      <div class="detail-row"><span class="detail-label">Reported</span>
+        <span>${new Date(i.reported_at).toLocaleString()}</span></div>
+      ${i.guard_name?`<div class="detail-row"><span class="detail-label">Guard</span>
+        <span>${i.guard_name}</span></div>`:''}
+      ${i.guard_phone?`<div class="detail-row"><span class="detail-label">Guard phone</span>
+        <a href="tel:${i.guard_phone}" style="color:var(--accent)">${i.guard_phone}</a></div>`:''}
+      ${i.description?`<div class="detail-row"><span class="detail-label">Description</span>
+        <span style="text-align:right;max-width:60%">${i.description}</span></div>`:''}
+      ${i.guard_note?`<div class="detail-row"><span class="detail-label">Guard note</span>
+        <span style="text-align:right;max-width:60%">${i.guard_note}</span></div>`:''}
+      ${i.cctv_feed?`<div class="detail-row"><span class="detail-label">CCTV</span>
+        <span>${i.cctv_feed}</span></div>`:''}
+      ${i.cctv_url?`<div class="detail-row"><span class="detail-label">Stream URL</span>
+        <a href="${i.cctv_url}" target="_blank" style="color:var(--accent)">View feed ↗</a></div>`:''}`;
+
+    // Action buttons
+    const actions = document.getElementById('sheetActions');
+    if (isDeleted) {
+      actions.innerHTML=`
+        <button class="btn btn-success-full" onclick="showRestoreForm()">
+          Restore incident
+        </button>`;
+    } else {
+      actions.innerHTML=`
+        <button class="btn btn-danger-full" onclick="showDeleteForm()">
+          Soft-delete incident
+        </button>
+        <button class="btn btn-ghost" onclick="closeOverlay()">Close</button>`;
+    }
+  } catch {
+    document.getElementById('sheetDetail').innerHTML='<p class="empty">Could not load.</p>';
+  }
+}
+
+// ---- Delete form -------------------------------------------
+function showDeleteForm()  {
+  document.getElementById('deleteForm').style.display  = 'block';
+  document.getElementById('sheetActions').style.display = 'none';
+}
+function hideDeleteForm()  {
+  document.getElementById('deleteForm').style.display  = 'none';
+  document.getElementById('sheetActions').style.display = 'flex';
+}
+function showRestoreForm() { document.getElementById('restoreForm').style.display='block'; }
+function hideRestoreForm() { document.getElementById('restoreForm').style.display='none'; }
+
+// ---- Submit soft-delete ------------------------------------
+// DELETE /api/incidents/{id} — passes reason, admin_id from JWT
+async function submitDelete() {
+  const reason = document.getElementById('deleteReason').value.trim();
+  if (!reason) { showMsg('Reason is required.','error'); return; }
+  const btn=document.getElementById('deleteBtn');
+  btn.disabled=true; btn.textContent='Deleting…';
+  try {
+    const res=await fetch(`${API}/incidents/${currentId}`,{
+      method:'DELETE', headers:authHeaders(),
+      body:JSON.stringify({reason}),
+    });
+    if (res.status===401) { handleUnauth(); return; }
+    const data=await res.json();
+    if (res.ok&&data.success) {
+      showMsg('Incident soft-deleted. Record retained for audit.','success');
+      closeOverlay(); loadActive();
+    } else {
+      showMsg(data.message||'Delete failed.','error');
+    }
+  } catch { showMsg('Server error.','error'); }
+  finally { btn.disabled=false; btn.textContent='Soft-delete incident'; }
+}
+
+// ---- Submit restore ----------------------------------------
+// PATCH /api/incidents/{id}/restore
+async function submitRestore() {
+  const reason=document.getElementById('restoreReason').value.trim();
+  if (!reason) { showMsg('Reason is required.','error'); return; }
+  const btn=document.getElementById('restoreBtn');
+  btn.disabled=true; btn.textContent='Restoring…';
+  try {
+    const res=await fetch(`${API}/incidents/${currentId}/restore`,{
+      method:'PATCH', headers:authHeaders(),
+      body:JSON.stringify({reason}),
+    });
+    if (res.status===401) { handleUnauth(); return; }
+    const data=await res.json();
+    if (res.ok&&data.success) {
+      showMsg('Incident restored.','success');
+      closeOverlay(); loadDeleted();
+    } else {
+      showMsg(data.message||'Restore failed.','error');
+    }
+  } catch { showMsg('Server error.','error'); }
+  finally { btn.disabled=false; btn.textContent='Restore incident'; }
+}
+
+function showMsg(t,type) {
+  const el=document.getElementById('msgBox');
+  el.textContent=t; el.className=`msg ${type}`;
+  setTimeout(()=>{el.className='msg';},5000);
+}
+function closeOverlay() { document.getElementById('overlay').classList.remove('open'); }
+function closeSheet(e)  { if(e.target===document.getElementById('overlay')) closeOverlay(); }
+
+loadActive();
+</script>
+</body>
+</html>

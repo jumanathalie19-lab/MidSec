@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Midview — Dashboard</title>
+<link rel="stylesheet" href="../../css/main.css"/>
+</head>
+<body>
+<div class="app">
+
+  <!-- Top bar -->
+  <div class="topbar">
+    <svg style="width:20px;height:20px;stroke:#fff;fill:none;stroke-width:1.5;flex-shrink:0"
+         viewBox="0 0 24 24">
+      <path d="M12 2L3 7v5c0 5.25 3.75 10.15 9 11.25C17.25 22.15 21 17.25 21 12V7L12 2z"/>
+    </svg>
+    <h1 id="greeting">Good evening</h1>
+    <div class="avatar" id="avatarBtn" onclick="window.location.href='profile.html'"></div>
+  </div>
+
+  <div class="body">
+
+    <!-- Court status -->
+    <div class="card-accent" id="courtStatus">
+      <p style="font-size:10px;color:rgba(255,255,255,0.5);letter-spacing:.5px;margin-bottom:6px">
+        COURT STATUS
+      </p>
+      <p style="font-family:var(--font-head);font-size:16px;font-weight:700;color:#fff">
+        Midview Court
+      </p>
+      <p style="font-size:11px;color:rgba(255,255,255,0.5);margin-top:4px" id="houseLabel">
+        Loading…
+      </p>
+    </div>
+
+    <!-- Stats -->
+    <div class="stat-grid" id="statsGrid">
+      <div class="stat">
+        <div class="num" id="totalReports">—</div>
+        <div class="lbl">My reports</div>
+      </div>
+      <div class="stat">
+        <div class="num" id="underReview">—</div>
+        <div class="lbl">Under review</div>
+      </div>
+    </div>
+
+    <!-- Recent Incidents -->
+    <div class="card">
+      <h3>Recent incidents</h3>
+      <div id="incidentList">
+        <div class="loading"><div class="spinner"></div>Loading…</div>
+      </div>
+    </div>
+
+    <!-- Subscription status -->
+    <div class="card" id="subCard">
+      <h3>Subscription</h3>
+      <div id="subStatus">
+        <div class="loading"><div class="spinner"></div></div>
+      </div>
+    </div>
+
+  </div><!-- /body -->
+
+  <!-- Bottom Nav -->
+  <div class="bottomnav">
+    <button class="navitem active" onclick="window.location.href='dashboard.html'">
+      <svg viewBox="0 0 24 24">
+        <path d="M3 12l9-9 9 9M5 10v9a1 1 0 001 1h4v-5h4v5h4a1 1 0 001-1v-9"/>
+      </svg>
+      <span>Home</span>
+    </button>
+    <div class="panic-wrap" onclick="window.location.href='panic.html'">
+      <div class="panic-circle">
+        <svg viewBox="0 0 24 24">
+          <path d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94
+                   a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+        </svg>
+      </div>
+      <span>PANIC</span>
+    </div>
+    <button class="navitem" onclick="window.location.href='subscription.html'">
+      <svg viewBox="0 0 24 24">
+        <rect x="2" y="5" width="20" height="14" rx="2"/>
+        <line x1="2" y1="10" x2="22" y2="10"/>
+      </svg>
+      <span>Pay</span>
+    </button>
+    <button class="navitem" onclick="window.location.href='profile.html'">
+      <svg viewBox="0 0 24 24">
+        <circle cx="12" cy="8" r="4"/>
+        <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
+      </svg>
+      <span>Profile</span>
+    </button>
+  </div>
+
+</div><!-- /app -->
+
+<script>
+// ============================================================
+//  Midview — Resident Dashboard
+//  Auth:  JWT from localStorage
+//  APIs:  GET /api/incidents/user
+//         GET /api/payments/subscription
+// ============================================================
+const API = 'http://localhost/midview-security-app/api';
+
+// ---- Auth guard --------------------------------------------
+// Redirect to login immediately if no token exists.
+const token = localStorage.getItem('midview_token');
+const user  = JSON.parse(localStorage.getItem('midview_user') || 'null');
+
+if (!token || !user || user.role !== 'resident') {
+    window.location.href = '../shared/login.html';
+}
+
+// ---- Personalise UI from stored JWT payload ----------------
+function initUI() {
+    const hour = new Date().getHours();
+    const greet = hour < 12 ? 'Good morning'
+                : hour < 17 ? 'Good afternoon'
+                : 'Good evening';
+
+    document.getElementById('greeting').textContent =
+        `${greet}, ${user.first_name}`;
+
+    // Avatar initials
+    const initials = (user.first_name[0] + user.last_name[0]).toUpperCase();
+    document.getElementById('avatarBtn').textContent = initials;
+}
+
+// ---- Helpers -----------------------------------------------
+function authHeaders() {
+    return {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type':  'application/json',
+    };
+}
+
+// Handle 401 globally — expired / invalid token
+function handleUnauthorised() {
+    localStorage.removeItem('midview_token');
+    localStorage.removeItem('midview_user');
+    window.location.href = '../shared/login.html';
+}
+
+function badgeHtml(status) {
+    const map = {
+        open:         '<span class="badge b-open">Open</span>',
+        under_review: '<span class="badge b-review">Under review</span>',
+        resolved:     '<span class="badge b-resolved">Resolved</span>',
+    };
+    return map[status] || `<span class="badge b-inactive">${status}</span>`;
+}
+
+function typeLabel(t) {
+    return {
+        suspicious_activity: 'Suspicious activity',
+        theft_breakin:       'Theft / break-in',
+        property_damage:     'Property damage',
+    }[t] || t;
+}
+
+function timeAgo(dateStr) {
+    const diff = Math.floor((Date.now() - new Date(dateStr)) / 1000);
+    if (diff < 60)    return 'Just now';
+    if (diff < 3600)  return Math.floor(diff / 60)   + ' mins ago';
+    if (diff < 86400) return Math.floor(diff / 3600)  + ' hrs ago';
+    return                    Math.floor(diff / 86400) + ' days ago';
+}
+
+// ---- Load incidents ----------------------------------------
+// Calls GET /api/incidents/user
+// $requesting_user_id is read from JWT inside the controller;
+// no user_id is passed in the URL (defaults to own).
+async function loadIncidents() {
+    try {
+        const res = await fetch(`${API}/incidents/user`, {
+            headers: authHeaders(),
+        });
+
+        if (res.status === 401) { handleUnauthorised(); return; }
+
+        const data = await res.json();
+        const list = document.getElementById('incidentList');
+
+        // Update house label now we know the call succeeded
+        document.getElementById('houseLabel').textContent =
+            `House ${user.house_no || '—'} · Security active`;
+
+        if (!data.success || !data.data || !data.data.length) {
+            list.innerHTML =
+                `<div class="empty">
+                    <p>No incidents reported yet.</p>
+                    <a href="panic.html" style="font-size:12px;color:var(--accent)">
+                        Report an incident
+                    </a>
+                 </div>`;
+            document.getElementById('totalReports').textContent = '0';
+            document.getElementById('underReview').textContent  = '0';
+            return;
+        }
+
+        const incidents = data.data;
+        document.getElementById('totalReports').textContent = incidents.length;
+        document.getElementById('underReview').textContent  =
+            incidents.filter(i => i.status === 'under_review').length;
+
+        list.innerHTML = incidents.slice(0, 5).map(i => `
+            <div class="inc-row">
+                <div class="dot dot-${i.status === 'under_review' ? 'review' : i.status}"></div>
+                <div class="inc-info">
+                    <div class="inc-title">${typeLabel(i.incident_type)}</div>
+                    <div class="inc-sub">${timeAgo(i.reported_at)}</div>
+                </div>
+                ${badgeHtml(i.status)}
+            </div>`).join('');
+
+    } catch (err) {
+        document.getElementById('incidentList').innerHTML =
+            '<p style="font-size:12px;color:var(--danger2)">Could not load incidents.</p>';
+    }
+}
+
+// ---- Load subscription status ------------------------------
+// Calls GET /api/payments/subscription
+// mpesa_ref excluded by the procedure (data minimization).
+async function loadSubscription() {
+    try {
+        const res = await fetch(`${API}/payments/subscription`, {
+            headers: authHeaders(),
+        });
+
+        if (res.status === 401) { handleUnauthorised(); return; }
+
+        const data = await res.json();
+        const el   = document.getElementById('subStatus');
+
+        if (!data.success || !data.data ||
+            data.data.subscription_status === 'no_subscription') {
+            el.innerHTML =
+                `<p style="font-size:13px;color:var(--danger2)">
+                    No active subscription.
+                    <a href="subscription.html" style="color:var(--accent)">Pay now</a>
+                 </p>`;
+            return;
+        }
+
+        const sub      = data.data;
+        const isActive = sub.subscription_status === 'active';
+        el.innerHTML   = `
+            <div style="display:flex;justify-content:space-between;align-items:center">
+                <div>
+                    <p style="font-size:13px;font-weight:500">
+                        ${isActive ? 'Active' : 'Expired'}
+                    </p>
+                    <p style="font-size:11px;color:var(--gray);margin-top:3px">
+                        ${isActive
+                            ? `${sub.days_remaining} day${sub.days_remaining === 1 ? '' : 's'} remaining`
+                            : 'Subscription expired'}
+                    </p>
+                </div>
+                <span class="badge ${isActive ? 'b-active' : 'b-failed'}">
+                    ${isActive ? 'Active' : 'Expired'}
+                </span>
+            </div>
+            ${!isActive
+                ? `<a href="subscription.html"
+                       class="btn btn-primary"
+                       style="margin-top:10px;display:block;text-align:center;
+                              text-decoration:none;font-size:13px">
+                       Renew subscription
+                   </a>`
+                : ''}`;
+
+    } catch (err) {
+        document.getElementById('subStatus').innerHTML =
+            '<p style="font-size:12px;color:var(--gray)">Could not load subscription status.</p>';
+    }
+}
+
+// ---- Init --------------------------------------------------
+initUI();
+loadIncidents();
+loadSubscription();
+</script>
+</body>
+</html>

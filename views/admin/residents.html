@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Midview Admin — Residents</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0d1117;--surface:#161b22;--border:rgba(255,255,255,.08);
+    --text:#e6edf3;--gray:#7d8590;--accent:#58a6ff;
+    --danger2:#ff7b72;--success:#3fb950;--warn:#d29922;
+    --navy:#102a43;--gold:#d4a017;
+    --font-head:'Syne',sans-serif;--font-body:'DM Sans',sans-serif;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{background:var(--bg);color:var(--text);font-family:var(--font-body);
+       min-height:100vh;display:flex;flex-direction:column;}
+  .topbar{background:var(--navy);padding:14px 20px;display:flex;
+          align-items:center;gap:10px;position:sticky;top:0;z-index:100;
+          border-bottom:1px solid rgba(255,255,255,.06);}
+  .back{background:none;border:none;color:#fff;font-size:20px;cursor:pointer;}
+  .topbar h1{font-family:var(--font-head);font-size:16px;font-weight:700;flex:1;}
+  .main{flex:1;padding:16px;max-width:900px;margin:0 auto;width:100%;}
+  /* Tabs */
+  .tabs{display:flex;gap:4px;background:var(--surface);border-radius:10px;
+        padding:4px;margin-bottom:14px;}
+  .tab{flex:1;padding:8px;text-align:center;font-size:13px;border-radius:8px;
+       cursor:pointer;border:none;background:transparent;color:var(--gray);
+       font-family:var(--font-body);}
+  .tab.active{background:var(--accent);color:#0d1117;font-weight:600;}
+  /* Resident cards */
+  .res-card{background:var(--surface);border:1px solid var(--border);
+            border-radius:12px;padding:14px;margin-bottom:10px;}
+  .res-top{display:flex;align-items:center;gap:12px;margin-bottom:10px;}
+  .res-avatar{width:40px;height:40px;border-radius:50%;flex-shrink:0;
+              background:rgba(88,166,255,.15);color:var(--accent);
+              display:flex;align-items:center;justify-content:center;
+              font-size:14px;font-weight:700;}
+  .res-info{flex:1;min-width:0;}
+  .res-name{font-weight:600;font-size:14px;}
+  .res-sub{font-size:11px;color:var(--gray);margin-top:3px;}
+  .res-actions{display:flex;gap:6px;flex-wrap:wrap;}
+  /* Badges */
+  .badge{font-size:10px;font-weight:600;padding:3px 8px;border-radius:10px;}
+  .b-pending{background:rgba(210,153,34,.15);color:var(--warn);}
+  .b-verified{background:rgba(63,185,80,.15);color:var(--success);}
+  .b-rejected{background:rgba(248,81,73,.15);color:var(--danger2);}
+  .b-inactive{background:rgba(125,133,144,.1);color:var(--gray);}
+  /* Buttons */
+  .btn{padding:7px 12px;border-radius:8px;font-size:12px;font-weight:500;
+       cursor:pointer;border:none;font-family:var(--font-body);transition:opacity .2s;}
+  .btn:disabled{opacity:.5;cursor:not-allowed;}
+  .btn-success{background:rgba(63,185,80,.15);color:var(--success);
+               border:1px solid rgba(63,185,80,.3);}
+  .btn-danger{background:rgba(248,81,73,.15);color:var(--danger2);
+              border:1px solid rgba(248,81,73,.3);}
+  .btn-ghost{background:transparent;color:var(--gray);border:1px solid var(--border);}
+  .btn-primary{background:var(--accent);color:#0d1117;font-weight:600;}
+  .btn-full{width:100%;padding:10px;border-radius:8px;font-size:13px;
+            font-weight:600;cursor:pointer;font-family:var(--font-body);
+            margin-bottom:8px;}
+  .btn:hover:not(:disabled){opacity:.8;}
+  /* Modal */
+  .overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);
+           z-index:200;align-items:flex-end;}
+  .overlay.open{display:flex;}
+  .sheet{background:var(--surface);border-radius:16px 16px 0 0;
+         width:100%;max-height:85vh;overflow-y:auto;padding:20px;}
+  .sheet-handle{width:40px;height:4px;background:var(--border);
+                border-radius:2px;margin:0 auto 16px;}
+  .sheet h2{font-family:var(--font-head);font-size:16px;font-weight:700;
+            margin-bottom:16px;}
+  .field{display:flex;flex-direction:column;gap:6px;margin-bottom:12px;}
+  .field label{font-size:12px;color:var(--gray);}
+  .field input,.field select{
+    background:rgba(255,255,255,.05);border:1px solid var(--border);
+    border-radius:8px;padding:10px 12px;color:var(--text);
+    font-family:var(--font-body);font-size:13px;width:100%;}
+  .field input:focus,.field select:focus{outline:none;border-color:var(--accent);}
+  .detail-row{display:flex;justify-content:space-between;
+              padding:8px 0;border-bottom:1px solid var(--border);font-size:13px;}
+  .detail-row:last-child{border-bottom:none;}
+  .detail-label{color:var(--gray);}
+  /* Bottom nav */
+  .bottomnav{position:sticky;bottom:0;background:var(--surface);
+             border-top:1px solid var(--border);
+             display:flex;justify-content:space-around;padding:10px 0 14px;}
+  .navitem{display:flex;flex-direction:column;align-items:center;gap:3px;
+           background:none;border:none;color:var(--gray);cursor:pointer;
+           font-family:var(--font-body);font-size:10px;padding:4px 10px;}
+  .navitem svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.5;}
+  .navitem.active{color:var(--gold);}
+  .loading{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--gray);padding:8px 0;}
+  .spinner{width:14px;height:14px;border:2px solid var(--border);
+           border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+  .msg{padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:12px;display:none;}
+  .msg.success{background:rgba(63,185,80,.1);color:var(--success);
+               border:1px solid rgba(63,185,80,.2);display:block;}
+  .msg.error{background:rgba(248,81,73,.1);color:var(--danger2);
+             border:1px solid rgba(248,81,73,.2);display:block;}
+  .msg.info{background:rgba(88,166,255,.08);color:var(--accent);
+            border:1px solid rgba(88,166,255,.2);display:block;}
+  .empty{font-size:12px;color:var(--gray);text-align:center;padding:12px 0;}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <button class="back" onclick="goto('dashboard.html')">←</button>
+  <h1>Residents & Staff</h1>
+  <button class="btn btn-primary" style="font-size:12px;padding:7px 12px;"
+          onclick="openCreateStaff()">+ Staff</button>
+</div>
+
+<div class="main">
+  <div id="msgBox" class="msg"></div>
+
+  <div class="tabs">
+    <button class="tab active" onclick="showTab('pending')">⏳ Pending</button>
+    <button class="tab"        onclick="showTab('all')">All residents</button>
+    <button class="tab"        onclick="showTab('staff')">Staff</button>
+  </div>
+
+  <div id="tabPending">
+    <div id="pendingList">
+      <div class="loading"><div class="spinner"></div> Loading…</div>
+    </div>
+  </div>
+  <div id="tabAll"   style="display:none;">
+    <p style="font-size:12px;color:var(--gray);margin-bottom:12px;">
+      Click a resident to view their profile and manage their account.
+    </p>
+    <div id="allList">
+      <div class="loading"><div class="spinner"></div> Loading…</div>
+    </div>
+  </div>
+  <div id="tabStaff" style="display:none;">
+    <div id="staffList">
+      <div class="loading"><div class="spinner"></div> Loading…</div>
+    </div>
+  </div>
+</div>
+
+<!-- Profile / action sheet -->
+<div class="overlay" id="overlay" onclick="closeSheet(event)">
+  <div class="sheet" id="sheet">
+    <div class="sheet-handle"></div>
+    <h2 id="sheetName">Resident</h2>
+    <div id="sheetBody"></div>
+  </div>
+</div>
+
+<!-- Create staff sheet -->
+<div class="overlay" id="staffOverlay" onclick="closeStaffSheet(event)">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <h2>Create staff account</h2>
+    <div class="field">
+      <label>First name</label>
+      <input type="text" id="sfFirst" maxlength="100"/>
+    </div>
+    <div class="field">
+      <label>Last name</label>
+      <input type="text" id="sfLast" maxlength="100"/>
+    </div>
+    <div class="field">
+      <label>Email</label>
+      <input type="email" id="sfEmail" maxlength="255"/>
+    </div>
+    <div class="field">
+      <label>Phone (07XX XXX XXX)</label>
+      <input type="tel" id="sfPhone" maxlength="10"/>
+    </div>
+    <div class="field">
+      <label>Password (min 6 chars)</label>
+      <input type="password" id="sfPassword"/>
+    </div>
+    <div class="field">
+      <label>Role</label>
+      <select id="sfRole">
+        <option value="guard">Guard</option>
+        <option value="admin">Admin</option>
+      </select>
+    </div>
+    <button class="btn btn-primary btn-full" id="createStaffBtn"
+            onclick="submitCreateStaff()">Create account</button>
+    <button class="btn btn-ghost btn-full"
+            onclick="closeStaffSheet()">Cancel</button>
+  </div>
+</div>
+
+<!-- Bottom nav -->
+<div class="bottomnav">
+  <button class="navitem" onclick="goto('dashboard.html')">
+    <svg viewBox="0 0 24 24"><path d="M3 12l9-9 9 9M5 10v9a1 1 0 001 1h4v-5h4v5h4a1 1 0 001-1v-9"/></svg>
+    Home
+  </button>
+  <button class="navitem active" onclick="goto('residents.html')">
+    <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+    Residents
+  </button>
+  <button class="navitem" onclick="goto('incidents.html')">
+    <svg viewBox="0 0 24 24"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+    Incidents
+  </button>
+  <button class="navitem" onclick="goto('payments.html')">
+    <svg viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
+    Payments
+  </button>
+  <button class="navitem" onclick="goto('reports.html')">
+    <svg viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+    Reports
+  </button>
+</div>
+
+<script>
+const API = 'http://localhost/midview-security-app/api';
+const token = localStorage.getItem('midview_token');
+const user  = JSON.parse(localStorage.getItem('midview_user') || 'null');
+if (!token || !user || user.role !== 'admin') {
+  window.location.href = '../shared/login.html';
+}
+function authHeaders() {
+  return { 'Authorization':`Bearer ${token}`, 'Content-Type':'application/json' };
+}
+function handleUnauth() {
+  localStorage.removeItem('midview_token');
+  localStorage.removeItem('midview_user');
+  window.location.href = '../shared/login.html';
+}
+function goto(p) { window.location.href = p; }
+
+const badge = s => ({
+  pending:  '<span class="badge b-pending">Pending</span>',
+  verified: '<span class="badge b-verified">Verified</span>',
+  rejected: '<span class="badge b-rejected">Rejected</span>',
+  active:   '<span class="badge b-verified">Active</span>',
+  inactive: '<span class="badge b-inactive">Inactive</span>',
+}[s] || s);
+
+let currentUserId = null;
+
+// ---- Tab control -------------------------------------------
+function showTab(tab) {
+  ['pending','all','staff'].forEach(t => {
+    document.getElementById(`tab${t.charAt(0).toUpperCase()+t.slice(1)}`)
+      .style.display = t===tab ? 'block' : 'none';
+  });
+  document.querySelectorAll('.tab').forEach((b,i) => {
+    b.classList.toggle('active', ['pending','all','staff'][i]===tab);
+  });
+  if (tab==='pending') loadPending();
+  if (tab==='all')     loadAll();
+  if (tab==='staff')   loadStaff();
+}
+
+// ---- Load pending residents --------------------------------
+async function loadPending() {
+  const el = document.getElementById('pendingList');
+  try {
+    const res  = await fetch(`${API}/auth/pending`, { headers: authHeaders() });
+    if (res.status === 401) { handleUnauth(); return; }
+    const data = await res.json();
+
+    if (!data.success || !data.data?.length) {
+      el.innerHTML = '<p class="empty">No pending verifications. ✅</p>'; return;
+    }
+
+    el.innerHTML = data.data.map(r => `
+      <div class="res-card">
+        <div class="res-top">
+          <div class="res-avatar">${(r.first_name[0]+r.last_name[0]).toUpperCase()}</div>
+          <div class="res-info">
+            <div class="res-name">${r.first_name} ${r.last_name}</div>
+            <div class="res-sub">🏠 ${r.house_no} · ${r.email} · ${r.phone_no}</div>
+          </div>
+          <span class="badge b-pending">Pending</span>
+        </div>
+        <div class="res-actions">
+          <button class="btn btn-success"
+                  onclick="verifyResident(${r.user_id},'verified',this)">
+            ✓ Approve
+          </button>
+          <button class="btn btn-danger"
+                  onclick="verifyResident(${r.user_id},'rejected',this)">
+            ✗ Reject
+          </button>
+        </div>
+      </div>`).join('');
+  } catch {
+    el.innerHTML = '<p class="empty">Could not load.</p>';
+  }
+}
+
+// ---- Load all residents & staff ----------------------------
+// Uses GET /api/auth/pending as a proxy — in a full implementation
+// a dedicated sp_get_all_users procedure would be added.
+// For now, the profile of any user can be viewed via show().
+async function loadAll() {
+  const el = document.getElementById('allList');
+  el.innerHTML = '<p class="empty">Select a resident from the Pending tab or search by ID.</p>';
+}
+
+async function loadStaff() {
+  const el = document.getElementById('staffList');
+  el.innerHTML = '<p class="empty">Staff accounts are managed via the + Staff button above.</p>';
+}
+
+// ---- Verify resident ---------------------------------------
+async function verifyResident(userId, status, btn) {
+  btn.disabled = true;
+  try {
+    const res  = await fetch(`${API}/auth/verify/${userId}`, {
+      method:'PATCH', headers: authHeaders(),
+      body: JSON.stringify({ status }),
+    });
+    if (res.status === 401) { handleUnauth(); return; }
+    const data = await res.json();
+    if (res.ok && data.success) {
+      showMsg(`Resident ${status}.`, 'success'); loadPending();
+    } else {
+      showMsg(data.message || 'Action failed.', 'error'); btn.disabled = false;
+    }
+  } catch { btn.disabled = false; }
+}
+
+// ---- View profile ------------------------------------------
+async function openProfile(userId) {
+  currentUserId = userId;
+  document.getElementById('sheetBody').innerHTML =
+    '<div class="loading"><div class="spinner"></div></div>';
+  document.getElementById('overlay').classList.add('open');
+
+  try {
+    const res  = await fetch(`${API}/auth/profile/${userId}`, {
+      headers: authHeaders(),
+    });
+    if (res.status === 401) { handleUnauth(); return; }
+    const data = await res.json();
+    if (!data.success) return;
+    const p = data.data;
+
+    document.getElementById('sheetName').textContent =
+      `${p.first_name} ${p.last_name}`;
+
+    document.getElementById('sheetBody').innerHTML = `
+      <div class="detail-row">
+        <span class="detail-label">Email</span>
+        <span>${p.email}</span>
+      </div>
+      <div class="detail-row">
+        <span class="detail-label">Phone</span>
+        <span>${p.phone_no}</span>
+      </div>
+      <div class="detail-row">
+        <span class="detail-label">House</span>
+        <span>${p.house_no}</span>
+      </div>
+      <div class="detail-row">
+        <span class="detail-label">Role</span>
+        <span>${p.role}</span>
+      </div>
+      <div class="detail-row">
+        <span class="detail-label">Status</span>
+        ${badge(p.status)}
+      </div>
+      <div class="detail-row">
+        <span class="detail-label">Verification</span>
+        ${badge(p.verification_status)}
+      </div>
+      <div class="detail-row">
+        <span class="detail-label">Registered</span>
+        <span>${new Date(p.created_at).toLocaleDateString()}</span>
+      </div>
+      <div style="margin-top:16px;display:flex;flex-direction:column;gap:8px;">
+        ${p.status === 'active'
+          ? `<button class="btn btn-danger btn-full"
+                     onclick="toggleStatus(${p.user_id},'inactive',this)">
+               Deactivate account
+             </button>`
+          : `<button class="btn btn-success btn-full"
+                     onclick="toggleStatus(${p.user_id},'active',this)">
+               Activate account
+             </button>`}
+        ${p.verification_status === 'pending'
+          ? `<button class="btn btn-success btn-full"
+                     onclick="verifyResident(${p.user_id},'verified',this)">
+               Approve verification
+             </button>` : ''}
+        <button class="btn btn-ghost btn-full" onclick="closeOverlay()">
+          Close
+        </button>
+      </div>`;
+
+  } catch {
+    document.getElementById('sheetBody').innerHTML =
+      '<p class="empty">Could not load profile.</p>';
+  }
+}
+
+// ---- Toggle account status ---------------------------------
+async function toggleStatus(userId, status, btn) {
+  btn.disabled    = true;
+  btn.textContent = 'Updating…';
+  try {
+    const res  = await fetch(`${API}/auth/status/${userId}`, {
+      method:'PATCH', headers: authHeaders(),
+      body: JSON.stringify({ status }),
+    });
+    if (res.status === 401) { handleUnauth(); return; }
+    const data = await res.json();
+    if (res.ok && data.success) {
+      showMsg(`Account set to ${status}.`, 'success');
+      closeOverlay();
+    } else {
+      showMsg(data.message || 'Failed.', 'error');
+      btn.disabled = false;
+    }
+  } catch { btn.disabled = false; }
+}
+
+// ---- Create staff ------------------------------------------
+function openCreateStaff() {
+  document.getElementById('staffOverlay').classList.add('open');
+}
+function closeStaffSheet(e) {
+  if (!e || e.target===document.getElementById('staffOverlay')) {
+    document.getElementById('staffOverlay').classList.remove('open');
+  }
+}
+
+async function submitCreateStaff() {
+  const first    = document.getElementById('sfFirst').value.trim();
+  const last     = document.getElementById('sfLast').value.trim();
+  const email    = document.getElementById('sfEmail').value.trim();
+  const phone    = document.getElementById('sfPhone').value.trim();
+  const password = document.getElementById('sfPassword').value;
+  const role     = document.getElementById('sfRole').value;
+
+  if (!first||!last||!email||!phone||!password) {
+    showMsg('All fields are required.', 'error'); return;
+  }
+  if (!/^0[17][0-9]{8}$/.test(phone)) {
+    showMsg('Invalid phone number format.', 'error'); return;
+  }
+  if (password.length < 6) {
+    showMsg('Password must be at least 6 characters.', 'error'); return;
+  }
+
+  const btn      = document.getElementById('createStaffBtn');
+  btn.disabled   = true;
+  btn.textContent = 'Creating…';
+
+  try {
+    const res  = await fetch(`${API}/auth/staff`, {
+      method:'POST', headers: authHeaders(),
+      body: JSON.stringify({
+        first_name: first, last_name: last,
+        email, phone_no: phone, password, role,
+      }),
+    });
+    if (res.status === 401) { handleUnauth(); return; }
+    const data = await res.json();
+    if (res.status===201 && data.success) {
+      showMsg(`${role} account created successfully.`, 'success');
+      closeStaffSheet();
+    } else {
+      showMsg(data.message || 'Creation failed.', 'error');
+    }
+  } catch { showMsg('Server error.', 'error'); }
+  finally { btn.disabled=false; btn.textContent='Create account'; }
+}
+
+function showMsg(text, type) {
+  const el = document.getElementById('msgBox');
+  el.textContent = text;
+  el.className   = `msg ${type}`;
+  setTimeout(() => { el.className='msg'; }, 5000);
+}
+function closeOverlay() { document.getElementById('overlay').classList.remove('open'); }
+function closeSheet(e)  { if(e.target===document.getElementById('overlay')) closeOverlay(); }
+
+loadPending();
+</script>
+</body>
+</html>

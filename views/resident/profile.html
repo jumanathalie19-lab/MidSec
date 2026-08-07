@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Midview — Profile</title>
+<link rel="stylesheet" href="../../css/main.css"/>
+</head>
+<body>
+<div class="app">
+
+  <div class="topbar">
+    <a class="back" href="dashboard.html">←</a>
+    <h1>My profile</h1>
+  </div>
+
+  <div class="body">
+
+    <!-- Profile header -->
+    <div class="profile-top">
+      <div class="avatar-lg" id="avatarLg"></div>
+      <p style="font-family:var(--font-head);font-size:18px;font-weight:700"
+         id="fullName">Loading…</p>
+      <p style="font-size:12px;color:rgba(255,255,255,0.5)" id="houseRole"></p>
+      <span class="badge b-open" style="margin-top:4px" id="verifiedBadge"></span>
+    </div>
+
+    <!-- Profile details (read-only — no update endpoint available) -->
+    <div class="card">
+      <h3>Personal details</h3>
+      <div id="profileLoading" class="loading"><div class="spinner"></div></div>
+      <div id="profileFields" style="display:none;
+           display:flex;flex-direction:column;gap:12px">
+
+        <div class="field">
+          <label>First name</label>
+          <input type="text" id="pfFirstName" disabled
+                 style="opacity:.7;background:rgba(255,255,255,.04)"/>
+        </div>
+        <div class="field">
+          <label>Last name</label>
+          <input type="text" id="pfLastName" disabled
+                 style="opacity:.7;background:rgba(255,255,255,.04)"/>
+        </div>
+        <div class="field">
+          <label>Email</label>
+          <input type="email" id="pfEmail" disabled
+                 style="opacity:.7;background:rgba(255,255,255,.04)"/>
+        </div>
+        <div class="field">
+          <label>Phone number</label>
+          <input type="tel" id="pfPhone" disabled
+                 style="opacity:.7;background:rgba(255,255,255,.04)"/>
+        </div>
+        <div class="field">
+          <label>House number</label>
+          <input type="text" id="pfHouse" disabled
+                 style="opacity:.4;background:rgba(255,255,255,.04)"/>
+        </div>
+
+        <p style="font-size:11px;color:var(--gray);margin-top:4px;line-height:1.6">
+          To update your personal details, please contact the estate admin.
+        </p>
+
+      </div>
+    </div>
+
+    <a href="settings.html" class="btn btn-secondary"
+       style="display:block;text-align:center;text-decoration:none">
+      Settings
+    </a>
+
+    <button class="btn btn-ghost"
+            style="color:var(--danger);border-color:rgba(224,62,62,0.2)"
+            onclick="logout()">
+      Sign out
+    </button>
+
+  </div>
+</div>
+
+<script>
+// ============================================================
+//  Midview — Profile Page
+//  Auth:  JWT from localStorage
+//  API:   GET /api/auth/profile
+//  Logout: client-side JWT removal (stateless)
+// ============================================================
+const API = 'http://localhost/midview-security-app/api';
+
+const token = localStorage.getItem('midview_token');
+const user  = JSON.parse(localStorage.getItem('midview_user') || 'null');
+if (!token || !user || user.role !== 'resident') {
+    window.location.href = '../shared/login.html';
+}
+
+function authHeaders() {
+    return {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type':  'application/json',
+    };
+}
+
+// ---- Load profile from API --------------------------------
+async function loadProfile() {
+    try {
+        const res = await fetch(`${API}/auth/profile`, {
+            headers: authHeaders(),
+        });
+
+        if (res.status === 401) {
+            localStorage.removeItem('midview_token');
+            localStorage.removeItem('midview_user');
+            window.location.href = '../shared/login.html';
+            return;
+        }
+
+        const data = await res.json();
+        if (!data.success || !data.data) return;
+
+        const p = data.data;
+
+        // Avatar initials
+        const initials = ((p.first_name?.[0] ?? '') +
+                          (p.last_name?.[0]  ?? '')).toUpperCase();
+        document.getElementById('avatarLg').textContent   = initials;
+        document.getElementById('fullName').textContent   =
+            `${p.first_name} ${p.last_name}`;
+        document.getElementById('houseRole').textContent  =
+            `House ${p.house_no} · Resident`;
+        document.getElementById('verifiedBadge').textContent =
+            p.verification_status === 'verified' ? 'Verified resident' : p.verification_status;
+
+        // Fill read-only fields
+        document.getElementById('pfFirstName').value = p.first_name   ?? '';
+        document.getElementById('pfLastName').value  = p.last_name    ?? '';
+        document.getElementById('pfEmail').value     = p.email        ?? '';
+        document.getElementById('pfPhone').value     = p.phone_no     ?? '';
+        document.getElementById('pfHouse').value     = p.house_no     ?? '';
+
+        document.getElementById('profileLoading').style.display = 'none';
+        document.getElementById('profileFields').style.display  = 'flex';
+
+    } catch (err) {
+        document.getElementById('profileLoading').innerHTML =
+            '<p style="font-size:12px;color:var(--gray)">Could not load profile.</p>';
+    }
+}
+
+// ---- Logout -----------------------------------------------
+// JWT is stateless — logout is purely client-side.
+// Remove token and user from localStorage, redirect to login.
+function logout() {
+    if (!confirm('Are you sure you want to sign out?')) return;
+    localStorage.removeItem('midview_token');
+    localStorage.removeItem('midview_user');
+    window.location.href = '../shared/login.html';
+}
+
+loadProfile();
+</script>
+</body>
+</html>

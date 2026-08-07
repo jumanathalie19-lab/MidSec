@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Midview Security — Register</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700&family=DM+Sans:wght@300;400;500&display=swap"
+      rel="stylesheet">
+<link rel="stylesheet" href="../../css/main.css"/>
+<link rel="stylesheet" href="../../css/login.css"/>
+</head>
+<body>
+
+<!-- Top bar -->
+<div class="topbar">
+  <a class="back" href="login.html">←</a>
+  <h1>Create account</h1>
+</div>
+
+<div class="body">
+
+  <!-- Alert area -->
+  <div id="msg" class="msg" role="alert" aria-live="polite"></div>
+
+  <!-- Info notice -->
+  <div class="msg info" style="display:block;margin-bottom:12px;font-size:12px;">
+    ℹ️ Resident accounts require admin approval before you can log in.
+  </div>
+
+  <!-- Name row -->
+  <div class="row">
+    <div class="field">
+      <label for="first_name">First name</label>
+      <input type="text" id="first_name" autocomplete="given-name"
+             placeholder="Jane" maxlength="100" required/>
+    </div>
+    <div class="field">
+      <label for="last_name">Last name</label>
+      <input type="text" id="last_name" autocomplete="family-name"
+             placeholder="Mwangi" maxlength="100" required/>
+    </div>
+  </div>
+
+  <!-- Email -->
+  <div class="field">
+    <label for="email">Email address</label>
+    <input type="email" id="email" autocomplete="email"
+           placeholder="jane@example.com" maxlength="255" required/>
+  </div>
+
+  <!-- Phone -->
+  <div class="field">
+    <label for="phone_no">Phone number</label>
+    <input type="tel" id="phone_no" autocomplete="tel"
+           placeholder="0712345678" maxlength="10"
+           pattern="^0[17][0-9]{8}$" required/>
+    <small style="font-size:11px;color:var(--gray);display:block;margin-top:4px;">
+      Kenyan mobile number: 07XX XXX XXX or 01XX XXX XXX
+    </small>
+  </div>
+
+  <!-- House number (always visible — registration is for residents only) -->
+  <div class="field">
+    <label for="house_no">House number</label>
+    <input type="text" id="house_no" placeholder="e.g. A14"
+           maxlength="10" required/>
+  </div>
+
+  <!-- Password -->
+  <div class="field">
+    <label for="password">Password</label>
+    <div style="position:relative;">
+      <input type="password" id="password" autocomplete="new-password"
+             placeholder="At least 6 characters" minlength="6" maxlength="128"
+             required oninput="updateStrength()"
+             style="padding-right:44px;width:100%;box-sizing:border-box;"/>
+      <button type="button" aria-label="Toggle password visibility"
+              onclick="togglePw('password','eyeIcon1')"
+              style="position:absolute;right:0;top:0;height:100%;
+                     background:none;border:none;padding:0 12px;
+                     cursor:pointer;color:var(--gray);font-size:16px;">
+        <span id="eyeIcon1">👁</span>
+      </button>
+    </div>
+    <!-- Strength bar -->
+    <div style="margin-top:6px;background:rgba(255,255,255,.1);
+                border-radius:2px;height:4px;">
+      <div id="strengthBar"
+           style="height:4px;border-radius:2px;width:0%;
+                  transition:width .3s,background .3s;"></div>
+    </div>
+    <small id="strengthLabel"
+           style="font-size:11px;color:var(--gray);
+                  display:block;margin-top:3px;"></small>
+  </div>
+
+  <!-- Confirm password -->
+  <div class="field">
+    <label for="confirm_password">Confirm password</label>
+    <div style="position:relative;">
+      <input type="password" id="confirm_password"
+             autocomplete="new-password"
+             placeholder="Repeat your password"
+             required
+             style="padding-right:44px;width:100%;box-sizing:border-box;"/>
+      <button type="button" aria-label="Toggle confirm password visibility"
+              onclick="togglePw('confirm_password','eyeIcon2')"
+              style="position:absolute;right:0;top:0;height:100%;
+                     background:none;border:none;padding:0 12px;
+                     cursor:pointer;color:var(--gray);font-size:16px;">
+        <span id="eyeIcon2">👁</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Submit -->
+  <button class="btn btn-primary" id="registerBtn" onclick="doRegister()">
+    <span id="regBtnText">Create account</span>
+    <span id="regSpinner" style="display:none;">…</span>
+  </button>
+
+  <p style="text-align:center;font-size:13px;color:var(--gray)">
+    Already registered?
+    <span class="link" onclick="window.location.href='login.html'">
+      Sign in
+    </span>
+  </p>
+
+</div>
+
+<script>
+// ============================================================
+//  Midview Security — Registration
+//  API: POST /api/auth/register
+//  On success: redirect to pending.html
+//  Role is fixed to 'resident' — no role selector.
+// ============================================================
+const API = 'http://localhost/MIDSEC/Controllers/AuthController.php';
+
+// Redirect if already logged in
+(function () {
+  const t = localStorage.getItem('midview_token');
+  const u = JSON.parse(localStorage.getItem('midview_user') || 'null');
+  if (t && u) {
+    window.location.href = `../${u.role}/dashboard.html`;
+  }
+})();
+
+// ---- Password show/hide ------------------------------------
+function togglePw(fieldId, iconId) {
+  const pw   = document.getElementById(fieldId);
+  const icon = document.getElementById(iconId);
+  const hidden = pw.type === 'password';
+  pw.type         = hidden ? 'text' : 'password';
+  icon.textContent = hidden ? '🙈' : '👁';
+}
+
+// ---- Password strength meter --------------------------------
+function updateStrength() {
+  const val   = document.getElementById('password').value;
+  const bar   = document.getElementById('strengthBar');
+  const label = document.getElementById('strengthLabel');
+  let score   = 0;
+  if (val.length >= 6)             score++;
+  if (val.length >= 10)            score++;
+  if (/[A-Z]/.test(val))          score++;
+  if (/[0-9]/.test(val))          score++;
+  if (/[^A-Za-z0-9]/.test(val))   score++;
+
+  const levels = [
+    { w: '0%',   bg: '',        txt: '' },
+    { w: '25%',  bg: '#e03e3e', txt: 'Weak' },
+    { w: '50%',  bg: '#f97316', txt: 'Fair' },
+    { w: '75%',  bg: '#eab308', txt: 'Good' },
+    { w: '100%', bg: '#22c55e', txt: 'Strong' },
+  ];
+  const lvl         = levels[Math.min(score, 4)];
+  bar.style.width      = lvl.w;
+  bar.style.background = lvl.bg;
+  label.textContent    = lvl.txt;
+}
+
+// ---- Registration ------------------------------------------
+async function doRegister() {
+  const first_name      = document.getElementById('first_name').value.trim();
+  const last_name       = document.getElementById('last_name').value.trim();
+  const email           = document.getElementById('email').value.trim();
+  const phone_no        = document.getElementById('phone_no').value.trim();
+  const house_no        = document.getElementById('house_no').value.trim().toUpperCase();
+  const password        = document.getElementById('password').value;
+  const confirm         = document.getElementById('confirm_password').value;
+
+  // ---- Client-side validation --------------------------------
+  if (!first_name || !last_name) {
+    showMsg('First and last name are required.', 'error'); return;
+  }
+  if (!validateEmail(email)) {
+    showMsg('A valid email address is required.', 'error'); return;
+  }
+  if (!/^0[17][0-9]{8}$/.test(phone_no)) {
+    showMsg(
+      'Enter a valid Kenyan mobile number starting with 07 or 01 (10 digits).',
+      'error'
+    ); return;
+  }
+  if (!house_no) {
+    showMsg('House number is required.', 'error'); return;
+  }
+  if (password.length < 6) {
+    showMsg('Password must be at least 6 characters.', 'error'); return;
+  }
+  if (password !== confirm) {
+    showMsg('Passwords do not match.', 'error'); return;
+  }
+
+  setLoading(true);
+  hideMsg();
+
+  try {
+    const res = await fetch(`${API}/auth/register`, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      // Role intentionally omitted — backend hardcodes 'resident'
+      body: JSON.stringify({
+        first_name, last_name, email,
+        phone_no, house_no, password,
+      }),
+    });
+
+    const data = await res.json();
+
+    if (res.status === 201 && data.success) {
+      // Store for pending.html personalisation (one-time use)
+      sessionStorage.setItem('reg_first_name', first_name);
+      window.location.href = 'pending.html';
+    } else {
+      const msg = res.status === 409
+        ? data.message  // "Email already registered" etc.
+        : (data.message || 'Registration failed. Please try again.');
+      showMsg(msg, res.status === 409 ? 'info' : 'error');
+    }
+
+  } catch (err) {
+    showMsg('Could not reach the server. Please try again.', 'error');
+  } finally {
+    setLoading(false);
+  }
+}
+
+// Allow Enter to submit
+document.addEventListener('keydown', e => {
+  if (e.key === 'Enter') doRegister();
+});
+
+// ---- Helpers -----------------------------------------------
+function validateEmail(e) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
+}
+
+function showMsg(text, type) {
+  const el       = document.getElementById('msg');
+  el.textContent  = text;
+  el.className    = `msg ${type}`;
+  el.style.display = 'block';
+  el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function hideMsg() {
+  document.getElementById('msg').style.display = 'none';
+}
+
+function setLoading(on) {
+  const btn  = document.getElementById('registerBtn');
+  const txt  = document.getElementById('regBtnText');
+  const spin = document.getElementById('regSpinner');
+  btn.disabled        = on;
+  txt.textContent     = on ? 'Creating account' : 'Create account';
+  spin.style.display   = on ? 'inline' : 'none';
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,610 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Midview Admin — CCTV</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root{--bg:#0d1117;--surface:#161b22;--border:rgba(255,255,255,.08);
+        --text:#e6edf3;--gray:#7d8590;--accent:#58a6ff;
+        --danger2:#ff7b72;--success:#3fb950;--warn:#d29922;
+        --navy:#102a43;--gold:#d4a017;
+        --font-head:'Syne',sans-serif;--font-body:'DM Sans',sans-serif;}
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{background:var(--bg);color:var(--text);font-family:var(--font-body);
+       min-height:100vh;display:flex;flex-direction:column;}
+  .topbar{background:var(--navy);padding:14px 20px;display:flex;
+          align-items:center;gap:10px;position:sticky;top:0;z-index:100;
+          border-bottom:1px solid rgba(255,255,255,.06);}
+  .back{background:none;border:none;color:#fff;font-size:20px;cursor:pointer;}
+  .topbar h1{font-family:var(--font-head);font-size:16px;font-weight:700;flex:1;}
+  .main{flex:1;padding:16px;max-width:900px;margin:0 auto;width:100%;}
+  .feed-card{background:var(--surface);border:1px solid var(--border);
+             border-radius:12px;padding:14px;margin-bottom:10px;cursor:pointer;
+             transition:border-color .2s;}
+  .feed-card:hover{border-color:rgba(88,166,255,.3);}
+  .feed-card.offline{opacity:.55;border-style:dashed;}
+  .feed-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;}
+  .feed-name{font-weight:600;font-size:14px;}
+  .feed-meta{font-size:11px;color:var(--gray);display:flex;gap:10px;flex-wrap:wrap;}
+  .chip{font-size:10px;font-weight:600;padding:2px 8px;border-radius:10px;}
+  .chip-on{background:rgba(63,185,80,.15);color:var(--success);}
+  .chip-off{background:rgba(125,133,144,.1);color:var(--gray);}
+  .overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);
+           z-index:200;align-items:flex-end;}
+  .overlay.open{display:flex;}
+  .sheet{background:var(--surface);border-radius:16px 16px 0 0;
+         width:100%;max-height:90vh;overflow-y:auto;padding:20px;}
+  .sheet-handle{width:40px;height:4px;background:var(--border);
+                border-radius:2px;margin:0 auto 16px;}
+  .sheet h2{font-family:var(--font-head);font-size:16px;font-weight:700;margin-bottom:14px;}
+  .tabs{display:flex;gap:4px;background:rgba(255,255,255,.04);
+        border-radius:8px;padding:3px;margin-bottom:14px;}
+  .tab{flex:1;padding:7px;text-align:center;font-size:12px;border-radius:6px;
+       cursor:pointer;border:none;background:transparent;color:var(--gray);
+       font-family:var(--font-body);}
+  .tab.active{background:var(--accent);color:#0d1117;font-weight:600;}
+  .field{display:flex;flex-direction:column;gap:6px;margin-bottom:12px;}
+  .field label{font-size:12px;color:var(--gray);}
+  .field input,.field textarea{
+    background:rgba(255,255,255,.05);border:1px solid var(--border);
+    border-radius:8px;padding:10px 12px;color:var(--text);
+    font-family:var(--font-body);font-size:13px;width:100%;}
+  .field input:focus,.field textarea:focus{outline:none;border-color:var(--accent);}
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+  .detail-row{display:flex;justify-content:space-between;
+              padding:8px 0;border-bottom:1px solid var(--border);font-size:13px;}
+  .detail-row:last-child{border-bottom:none;}
+  .detail-label{color:var(--gray);}
+  .btn{padding:10px 14px;border-radius:8px;font-size:13px;font-weight:500;
+       cursor:pointer;border:none;font-family:var(--font-body);
+       transition:opacity .2s;width:100%;margin-bottom:8px;}
+  .btn:disabled{opacity:.5;cursor:not-allowed;}
+  .btn-primary{background:var(--accent);color:#0d1117;font-weight:600;}
+  .btn-warn{background:rgba(210,153,34,.15);color:var(--warn);
+            border:1px solid rgba(210,153,34,.3);}
+  .btn-danger{background:rgba(248,81,73,.1);color:var(--danger2);
+              border:1px solid rgba(248,81,73,.3);}
+  .btn-ghost{background:transparent;color:var(--gray);border:1px solid var(--border);}
+  .btn:hover:not(:disabled){opacity:.8;}
+  .add-btn{background:var(--accent);color:#0d1117;border:none;
+           padding:7px 14px;border-radius:8px;font-size:12px;
+           font-weight:600;cursor:pointer;font-family:var(--font-body);}
+  .audit-row{display:flex;align-items:flex-start;gap:8px;
+             padding:8px 0;border-bottom:1px solid var(--border);}
+  .audit-row:last-child{border-bottom:none;}
+  .audit-action{font-size:12px;font-weight:500;}
+  .audit-sub{font-size:11px;color:var(--gray);margin-top:2px;}
+  .bottomnav{position:sticky;bottom:0;background:var(--surface);
+             border-top:1px solid var(--border);
+             display:flex;justify-content:space-around;padding:10px 0 14px;}
+  .navitem{display:flex;flex-direction:column;align-items:center;gap:3px;
+           background:none;border:none;color:var(--gray);cursor:pointer;
+           font-family:var(--font-body);font-size:10px;padding:4px 10px;}
+  .navitem svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.5;}
+  .navitem.active{color:var(--gold);}
+  .loading{display:flex;align-items:center;gap:8px;font-size:12px;
+           color:var(--gray);padding:8px 0;}
+  .spinner{width:14px;height:14px;border:2px solid var(--border);
+           border-top-color:var(--accent);border-radius:50%;
+           animation:spin .7s linear infinite;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+  .msg{padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:12px;display:none;}
+  .msg.success{background:rgba(63,185,80,.1);color:var(--success);
+               border:1px solid rgba(63,185,80,.2);display:block;}
+  .msg.error{background:rgba(248,81,73,.1);color:var(--danger2);
+             border:1px solid rgba(248,81,73,.2);display:block;}
+  .msg.info{background:rgba(88,166,255,.08);color:var(--accent);
+            border:1px solid rgba(88,166,255,.2);display:block;}
+  .empty{font-size:12px;color:var(--gray);text-align:center;padding:12px 0;}
+  .warn-box{background:rgba(210,153,34,.08);border:1px solid rgba(210,153,34,.2);
+            border-radius:8px;padding:10px;font-size:12px;color:var(--warn);
+            margin-bottom:10px;}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <button class="back" onclick="goto('dashboard.html')">←</button>
+  <h1>CCTV Management</h1>
+  <button class="add-btn" onclick="openAdd()">+ Add feed</button>
+</div>
+
+<div class="main">
+  <div id="msgBox" class="msg"></div>
+  <div id="feedList">
+    <div class="loading"><div class="spinner"></div> Loading feeds…</div>
+  </div>
+</div>
+
+<!-- Feed detail / management sheet -->
+<div class="overlay" id="overlay" onclick="closeSheet(event)">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+
+    <div class="tabs" id="sheetTabs">
+      <button class="tab active" onclick="switchSheetTab('detail')">Detail</button>
+      <button class="tab"        onclick="switchSheetTab('edit')">Edit</button>
+      <button class="tab"        onclick="switchSheetTab('audit')">Audit</button>
+    </div>
+
+    <!-- Detail tab -->
+    <div id="stDetail">
+      <h2 id="sheetFeedName">Feed</h2>
+      <div id="sheetDetailBody"></div>
+      <div style="margin-top:14px;display:flex;flex-direction:column;gap:8px;"
+           id="sheetActionBtns"></div>
+    </div>
+
+    <!-- Edit tab -->
+    <div id="stEdit" style="display:none;">
+      <h2>Edit feed</h2>
+      <div class="field"><label>Feed name</label>
+        <input type="text" id="eFeedName" maxlength="100"/></div>
+      <div class="field"><label>Location</label>
+        <input type="text" id="eLocation" maxlength="100"/></div>
+      <div class="field"><label>Stream URL (RTSP)</label>
+        <input type="text" id="eStreamUrl" maxlength="255"/></div>
+      <div class="row2">
+        <div class="field"><label>Latitude</label>
+          <input type="number" id="eLat" step="any"/></div>
+        <div class="field"><label>Longitude</label>
+          <input type="number" id="eLng" step="any"/></div>
+      </div>
+      <button class="btn btn-primary" id="saveEditBtn" onclick="submitEdit()">
+        Save changes
+      </button>
+      <button class="btn btn-ghost" onclick="closeOverlay()">Cancel</button>
+    </div>
+
+    <!-- Audit tab -->
+    <div id="stAudit" style="display:none;">
+      <h2>Audit trail</h2>
+      <div id="auditBody">
+        <div class="loading"><div class="spinner"></div></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Add feed sheet -->
+<div class="overlay" id="addOverlay" onclick="closeAddSheet(event)">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <h2>Add CCTV feed</h2>
+    <div class="field"><label>Feed name</label>
+      <input type="text" id="aFeedName" maxlength="100" placeholder="e.g. Gate A"/></div>
+    <div class="field"><label>Location</label>
+      <input type="text" id="aLocation" maxlength="100" placeholder="e.g. Main entrance"/></div>
+    <div class="field"><label>Stream URL (RTSP)</label>
+      <input type="text" id="aStreamUrl" maxlength="255"
+             placeholder="rtsp://cctv.midview.local/gateA"/></div>
+    <div class="row2">
+      <div class="field"><label>Latitude</label>
+        <input type="number" id="aLat" step="any" placeholder="-1.2782"/></div>
+      <div class="field"><label>Longitude</label>
+        <input type="number" id="aLng" step="any" placeholder="36.9422"/></div>
+    </div>
+    <button class="btn btn-primary" id="addFeedBtn" onclick="submitAdd()">
+      Add feed
+    </button>
+    <button class="btn btn-ghost" onclick="closeAddSheet()">Cancel</button>
+  </div>
+</div>
+
+<!-- Toggle reason sheet -->
+<div class="overlay" id="toggleOverlay" onclick="closeToggleSheet(event)">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <h2 id="toggleTitle">Toggle feed status</h2>
+    <div class="warn-box" id="toggleWarn"></div>
+    <div class="field">
+      <label>Reason (required)</label>
+      <textarea id="toggleReason" rows="3"
+                placeholder="Document why you are toggling this feed's status…"
+                maxlength="300"></textarea>
+    </div>
+    <button class="btn btn-warn" id="toggleBtn" onclick="submitToggle()">
+      Confirm
+    </button>
+    <button class="btn btn-ghost" onclick="closeToggleSheet()">Cancel</button>
+  </div>
+</div>
+
+<!-- Delete reason sheet -->
+<div class="overlay" id="deleteOverlay" onclick="closeDeleteSheet(event)">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <h2>Delete CCTV feed</h2>
+    <div class="warn-box">
+      ⚠️ This feed must be offline before deletion. The feed will be
+      permanently removed. This cannot be undone.
+    </div>
+    <div class="field">
+      <label>Reason (required)</label>
+      <textarea id="deleteReason" rows="3"
+                placeholder="Document why this feed is being removed…"
+                maxlength="300"></textarea>
+    </div>
+    <button class="btn btn-danger" id="deleteFeedBtn" onclick="submitDeleteFeed()">
+      Permanently delete
+    </button>
+    <button class="btn btn-ghost" onclick="closeDeleteSheet()">Cancel</button>
+  </div>
+</div>
+
+<!-- Bottom nav -->
+<div class="bottomnav">
+  <button class="navitem" onclick="goto('dashboard.html')">
+    <svg viewBox="0 0 24 24"><path d="M3 12l9-9 9 9M5 10v9a1 1 0 001 1h4v-5h4v5h4a1 1 0 001-1v-9"/></svg>
+    Home
+  </button>
+  <button class="navitem" onclick="goto('residents.html')">
+    <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+    Residents
+  </button>
+  <button class="navitem" onclick="goto('incidents.html')">
+    <svg viewBox="0 0 24 24"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+    Incidents
+  </button>
+  <button class="navitem active" onclick="goto('cctv.html')">
+    <svg viewBox="0 0 24 24"><path d="M15 10l4.553-2.276A1 1 0 0121 8.723v6.554a1 1 0 01-1.447.894L15 14M3 8a2 2 0 012-2h10a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8z"/></svg>
+    CCTV
+  </button>
+  <button class="navitem" onclick="goto('reports.html')">
+    <svg viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+    Reports
+  </button>
+</div>
+
+<script>
+// ============================================================
+//  Midview Admin — CCTV Management
+//  Two-step delete: toggle offline FIRST, then delete.
+//  All writes pass admin_id from JWT (procedure verifies).
+//  stream_url returned — admin caller receives full details.
+// ============================================================
+const API = 'http://localhost/midview-security-app/api';
+const token = localStorage.getItem('midview_token');
+const user  = JSON.parse(localStorage.getItem('midview_user') || 'null');
+if (!token || !user || user.role !== 'admin') {
+  window.location.href = '../shared/login.html';
+}
+function authHeaders() {
+  return { 'Authorization':`Bearer ${token}`, 'Content-Type':'application/json' };
+}
+function handleUnauth() {
+  localStorage.removeItem('midview_token');
+  localStorage.removeItem('midview_user');
+  window.location.href = '../shared/login.html';
+}
+function goto(p) { window.location.href = p; }
+
+let currentFeedId = null;
+let currentFeed   = null;
+
+// ---- Load feeds --------------------------------------------
+async function loadFeeds() {
+  try {
+    const res  = await fetch(`${API}/cctv`, { headers: authHeaders() });
+    if (res.status===401) { handleUnauth(); return; }
+    const data = await res.json();
+    const el   = document.getElementById('feedList');
+
+    if (!data.success||!data.data?.length) {
+      el.innerHTML='<p class="empty">No CCTV feeds configured.</p>'; return;
+    }
+
+    el.innerHTML = data.data.map(f => `
+      <div class="feed-card ${f.feed_status==='active'?'':'offline'}"
+           onclick="openFeed(${f.feed_id})">
+        <div class="feed-top">
+          <span class="feed-name">${f.feed_name}</span>
+          <span class="chip ${f.feed_status==='active'?'chip-on':'chip-off'}">
+            ${f.feed_status==='active'?'Online':'Offline'}
+          </span>
+        </div>
+        <div class="feed-meta">
+          <span>📍 ${f.location}</span>
+          ${f.stream_url
+            ? `<span style="font-size:10px;color:var(--accent)">
+                 ${f.stream_url.substring(0,40)}…
+               </span>`
+            : ''}
+        </div>
+      </div>`).join('');
+  } catch {
+    document.getElementById('feedList').innerHTML =
+      '<p class="empty">Could not load feeds.</p>';
+  }
+}
+
+// ---- Open feed detail --------------------------------------
+async function openFeed(id) {
+  currentFeedId = id;
+  switchSheetTab('detail');
+  document.getElementById('sheetDetailBody').innerHTML =
+    '<div class="loading"><div class="spinner"></div></div>';
+  document.getElementById('overlay').classList.add('open');
+
+  try {
+    const res  = await fetch(`${API}/cctv/${id}`, { headers: authHeaders() });
+    if (res.status===401) { handleUnauth(); return; }
+    const data = await res.json();
+    if (!data.success) return;
+    const f = currentFeed = data.data;
+
+    document.getElementById('sheetFeedName').textContent = f.feed_name;
+
+    // Pre-fill edit form
+    document.getElementById('eFeedName').value  = f.feed_name;
+    document.getElementById('eLocation').value  = f.location;
+    document.getElementById('eStreamUrl').value = f.stream_url||'';
+    document.getElementById('eLat').value        = f.latitude;
+    document.getElementById('eLng').value        = f.longitude;
+
+    document.getElementById('sheetDetailBody').innerHTML = `
+      <div class="detail-row">
+        <span class="detail-label">Status</span>
+        <span class="chip ${f.feed_status==='active'?'chip-on':'chip-off'}">
+          ${f.feed_status}
+        </span>
+      </div>
+      <div class="detail-row">
+        <span class="detail-label">Location</span><span>${f.location}</span>
+      </div>
+      <div class="detail-row">
+        <span class="detail-label">GPS</span>
+        <span>${f.latitude}, ${f.longitude}</span>
+      </div>
+      <div class="detail-row">
+        <span class="detail-label">Stream URL</span>
+        ${f.stream_url
+          ? `<a href="${f.stream_url}" target="_blank" rel="noopener"
+                style="color:var(--accent);font-size:12px;">View feed ↗</a>`
+          : '<span style="color:var(--gray)">None</span>'}
+      </div>`;
+
+    document.getElementById('sheetActionBtns').innerHTML = `
+      <button class="btn btn-warn"
+              onclick="openToggle(${f.feed_id},
+                '${f.feed_status}')">
+        ${f.feed_status==='active' ? 'Take offline' : 'Bring online'}
+      </button>
+      <button class="btn btn-danger"
+              onclick="openDeleteFeed(${f.feed_id})">
+        Delete feed
+      </button>
+      <button class="btn btn-ghost" onclick="closeOverlay()">Close</button>`;
+
+  } catch {
+    document.getElementById('sheetDetailBody').innerHTML =
+      '<p class="empty">Could not load.</p>';
+  }
+}
+
+// ---- Add feed ----------------------------------------------
+function openAdd() { document.getElementById('addOverlay').classList.add('open'); }
+function closeAddSheet(e) {
+  if(!e||e.target===document.getElementById('addOverlay'))
+    document.getElementById('addOverlay').classList.remove('open');
+}
+
+async function submitAdd() {
+  const name = document.getElementById('aFeedName').value.trim();
+  const loc  = document.getElementById('aLocation').value.trim();
+  const url  = document.getElementById('aStreamUrl').value.trim();
+  const lat  = parseFloat(document.getElementById('aLat').value);
+  const lng  = parseFloat(document.getElementById('aLng').value);
+
+  if (!name||!loc||!url) {
+    showMsg('Feed name, location and stream URL are required.','error'); return;
+  }
+  if (isNaN(lat)||lat<-90||lat>90) {
+    showMsg('Latitude must be between -90 and 90.','error'); return;
+  }
+  if (isNaN(lng)||lng<-180||lng>180) {
+    showMsg('Longitude must be between -180 and 180.','error'); return;
+  }
+
+  const btn=document.getElementById('addFeedBtn');
+  btn.disabled=true; btn.textContent='Adding…';
+
+  try {
+    const res=await fetch(`${API}/cctv`,{
+      method:'POST', headers:authHeaders(),
+      body:JSON.stringify({
+        feed_name:name, location:loc,
+        stream_url:url, latitude:lat, longitude:lng,
+      }),
+    });
+    if (res.status===401) { handleUnauth(); return; }
+    const data=await res.json();
+    if (res.status===201&&data.success) {
+      showMsg('CCTV feed added.','success');
+      closeAddSheet(); loadFeeds();
+    } else {
+      showMsg(data.message||'Add failed.','error');
+    }
+  } catch { showMsg('Server error.','error'); }
+  finally { btn.disabled=false; btn.textContent='Add feed'; }
+}
+
+// ---- Edit feed ---------------------------------------------
+async function submitEdit() {
+  const name = document.getElementById('eFeedName').value.trim();
+  const loc  = document.getElementById('eLocation').value.trim();
+  const url  = document.getElementById('eStreamUrl').value.trim();
+  const lat  = parseFloat(document.getElementById('eLat').value);
+  const lng  = parseFloat(document.getElementById('eLng').value);
+
+  if (!name||!loc||!url) {
+    showMsg('All fields required.','error'); return;
+  }
+  if (isNaN(lat)||lat<-90||lat>90) {
+    showMsg('Invalid latitude.','error'); return;
+  }
+  if (isNaN(lng)||lng<-180||lng>180) {
+    showMsg('Invalid longitude.','error'); return;
+  }
+
+  const btn=document.getElementById('saveEditBtn');
+  btn.disabled=true; btn.textContent='Saving…';
+
+  try {
+    const res=await fetch(`${API}/cctv/${currentFeedId}`,{
+      method:'PUT', headers:authHeaders(),
+      body:JSON.stringify({
+        feed_name:name, location:loc,
+        stream_url:url, latitude:lat, longitude:lng,
+      }),
+    });
+    if (res.status===401) { handleUnauth(); return; }
+    const data=await res.json();
+    if (res.ok&&data.success) {
+      showMsg('Feed updated.','success');
+      closeOverlay(); loadFeeds();
+    } else {
+      showMsg(data.message||'Update failed.','error');
+    }
+  } catch { showMsg('Server error.','error'); }
+  finally { btn.disabled=false; btn.textContent='Save changes'; }
+}
+
+// ---- Toggle feed status ------------------------------------
+function openToggle(id, currentStatus) {
+  currentFeedId = id;
+  document.getElementById('toggleTitle').textContent =
+    currentStatus==='active' ? 'Take feed offline' : 'Bring feed online';
+  document.getElementById('toggleWarn').textContent =
+    currentStatus==='active'
+      ? '⚠️ Taking this feed offline will remove it from nearest-feed lookups and active incident assignment.'
+      : '✅ This feed will become available for incident and panic alert assignment.';
+  document.getElementById('toggleReason').value='';
+  document.getElementById('toggleOverlay').classList.add('open');
+}
+function closeToggleSheet(e) {
+  if(!e||e.target===document.getElementById('toggleOverlay'))
+    document.getElementById('toggleOverlay').classList.remove('open');
+}
+async function submitToggle() {
+  const reason=document.getElementById('toggleReason').value.trim();
+  if (!reason) { showMsg('Reason is required.','error'); return; }
+  const btn=document.getElementById('toggleBtn');
+  btn.disabled=true; btn.textContent='Updating…';
+  try {
+    const res=await fetch(`${API}/cctv/${currentFeedId}/status`,{
+      method:'PATCH', headers:authHeaders(),
+      body:JSON.stringify({reason}),
+    });
+    if (res.status===401) { handleUnauth(); return; }
+    const data=await res.json();
+    if (res.ok&&data.success) {
+      const warn = data.data?.active_panic_alerts_affected;
+      const msg  = warn
+        ? `Status toggled. ⚠️ ${warn} active panic alert(s) affected.`
+        : 'Feed status toggled successfully.';
+      showMsg(msg, warn ? 'info' : 'success');
+      closeToggleSheet(); closeOverlay(); loadFeeds();
+    } else {
+      showMsg(data.message||'Toggle failed.','error');
+    }
+  } catch { showMsg('Server error.','error'); }
+  finally { btn.disabled=false; btn.textContent='Confirm'; }
+}
+
+// ---- Delete feed -------------------------------------------
+// TWO-STEP: must be inactive first
+function openDeleteFeed(id) {
+  currentFeedId=id;
+  document.getElementById('deleteReason').value='';
+  document.getElementById('deleteOverlay').classList.add('open');
+}
+function closeDeleteSheet(e) {
+  if(!e||e.target===document.getElementById('deleteOverlay'))
+    document.getElementById('deleteOverlay').classList.remove('open');
+}
+async function submitDeleteFeed() {
+  const reason=document.getElementById('deleteReason').value.trim();
+  if (!reason) { showMsg('Reason is required.','error'); return; }
+  const btn=document.getElementById('deleteFeedBtn');
+  btn.disabled=true; btn.textContent='Deleting…';
+  try {
+    const res=await fetch(`${API}/cctv/${currentFeedId}`,{
+      method:'DELETE', headers:authHeaders(),
+      body:JSON.stringify({reason}),
+    });
+    if (res.status===401) { handleUnauth(); return; }
+    const data=await res.json();
+    if (res.ok&&data.success) {
+      showMsg('Feed deleted.','success');
+      closeDeleteSheet(); closeOverlay(); loadFeeds();
+    } else if (res.status===409) {
+      // Must deactivate first
+      showMsg(data.message||'Deactivate feed first.','error');
+    } else {
+      showMsg(data.message||'Delete failed.','error');
+    }
+  } catch { showMsg('Server error.','error'); }
+  finally { btn.disabled=false; btn.textContent='Permanently delete'; }
+}
+
+// ---- Audit trail -------------------------------------------
+async function loadAudit() {
+  const el=document.getElementById('auditBody');
+  el.innerHTML='<div class="loading"><div class="spinner"></div></div>';
+  try {
+    const res=await fetch(`${API}/cctv/${currentFeedId}/audit`,{
+      headers:authHeaders(),
+    });
+    if (res.status===401) { handleUnauth(); return; }
+    const data=await res.json();
+    if (!data.success||!data.data?.length) {
+      el.innerHTML='<p class="empty">No audit records.</p>'; return;
+    }
+    el.innerHTML=data.data.map(a=>`
+      <div class="audit-row">
+        <div style="flex:1;min-width:0;">
+          <div class="audit-action">${a.action}</div>
+          <div class="audit-sub">
+            ${a.actioned_by} (${a.actor_role})
+            · ${new Date(a.actioned_at).toLocaleString()}
+          </div>
+          ${a.new_value
+            ? `<div class="audit-sub" style="font-family:monospace;
+                    word-break:break-all;margin-top:2px;">
+                 ${a.new_value}
+               </div>` : ''}
+        </div>
+      </div>`).join('');
+  } catch {
+    el.innerHTML='<p class="empty">Could not load audit trail.</p>';
+  }
+}
+
+// ---- Sheet tab control -------------------------------------
+function switchSheetTab(tab) {
+  ['detail','edit','audit'].forEach(t=>{
+    document.getElementById(`st${t.charAt(0).toUpperCase()+t.slice(1)}`)
+      .style.display = t===tab ? 'block':'none';
+  });
+  document.querySelectorAll('#sheetTabs .tab').forEach((b,i)=>{
+    b.classList.toggle('active',['detail','edit','audit'][i]===tab);
+  });
+  if (tab==='audit') loadAudit();
+}
+
+function showMsg(t,type) {
+  const el=document.getElementById('msgBox');
+  el.textContent=t; el.className=`msg ${type}`;
+  setTimeout(()=>{el.className='msg';},6000);
+}
+function closeOverlay() { document.getElementById('overlay').classList.remove('open'); }
+function closeSheet(e)  { if(e.target===document.getElementById('overlay')) closeOverlay(); }
+
+loadFeeds();
+</script>
+</body>
+</html>

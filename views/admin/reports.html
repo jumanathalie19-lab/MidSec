@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Midview Admin — Reports</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root{--bg:#0d1117;--surface:#161b22;--border:rgba(255,255,255,.08);
+        --text:#e6edf3;--gray:#7d8590;--accent:#58a6ff;
+        --danger2:#ff7b72;--success:#3fb950;--warn:#d29922;
+        --navy:#102a43;--gold:#d4a017;
+        --font-head:'Syne',sans-serif;--font-body:'DM Sans',sans-serif;}
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{background:var(--bg);color:var(--text);font-family:var(--font-body);
+       min-height:100vh;display:flex;flex-direction:column;}
+  .topbar{background:var(--navy);padding:14px 20px;display:flex;
+          align-items:center;gap:10px;position:sticky;top:0;z-index:100;
+          border-bottom:1px solid rgba(255,255,255,.06);}
+  .back{background:none;border:none;color:#fff;font-size:20px;cursor:pointer;}
+  .topbar h1{font-family:var(--font-head);font-size:16px;font-weight:700;}
+  .main{flex:1;padding:16px;max-width:900px;margin:0 auto;width:100%;}
+  /* Date row */
+  .date-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;
+            background:var(--surface);border:1px solid var(--border);
+            border-radius:10px;padding:12px;margin-bottom:16px;}
+  .date-row label{font-size:12px;color:var(--gray);}
+  .date-row input{background:rgba(255,255,255,.06);border:1px solid var(--border);
+                  color:var(--text);padding:6px 10px;border-radius:8px;
+                  font-family:var(--font-body);font-size:12px;}
+  /* Report type cards */
+  .report-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;}
+  @media(min-width:600px){.report-grid{grid-template-columns:repeat(3,1fr);}}
+  .report-card{background:var(--surface);border:1px solid var(--border);
+               border-radius:12px;padding:16px;cursor:pointer;transition:border-color .2s;}
+  .report-card:hover,.report-card.selected{border-color:var(--accent);
+                                           background:rgba(88,166,255,.05);}
+  .report-icon{font-size:24px;margin-bottom:6px;}
+  .report-name{font-size:13px;font-weight:600;}
+  .report-desc{font-size:11px;color:var(--gray);margin-top:4px;line-height:1.5;}
+  /* Generate button */
+  .gen-btn{width:100%;padding:13px;background:var(--accent);color:#0d1117;
+           border:none;border-radius:10px;font-size:14px;font-weight:700;
+           cursor:pointer;font-family:var(--font-head);margin-bottom:14px;}
+  .gen-btn:disabled{opacity:.5;cursor:not-allowed;}
+  /* Result area */
+  .result-card{background:var(--surface);border:1px solid var(--border);
+               border-radius:12px;padding:16px;margin-bottom:12px;}
+  .result-card h3{font-family:var(--font-head);font-size:13px;font-weight:600;
+                  color:var(--gray);text-transform:uppercase;letter-spacing:.5px;
+                  margin-bottom:12px;}
+  /* Metric rows */
+  .metric-row{display:flex;justify-content:space-between;
+              padding:7px 0;border-bottom:1px solid var(--border);font-size:13px;}
+  .metric-row:last-child{border-bottom:none;}
+  .metric-label{color:var(--gray);}
+  .metric-val{font-weight:600;}
+  /* Table */
+  .data-table{width:100%;border-collapse:collapse;font-size:12px;}
+  .data-table th{color:var(--gray);font-weight:500;text-align:left;
+                 padding:6px 8px;border-bottom:1px solid var(--border);}
+  .data-table td{padding:7px 8px;border-bottom:1px solid rgba(255,255,255,.04);}
+  .data-table tr:last-child td{border-bottom:none;}
+  .bottomnav{position:sticky;bottom:0;background:var(--surface);
+             border-top:1px solid var(--border);
+             display:flex;justify-content:space-around;padding:10px 0 14px;}
+  .navitem{display:flex;flex-direction:column;align-items:center;gap:3px;
+           background:none;border:none;color:var(--gray);cursor:pointer;
+           font-family:var(--font-body);font-size:10px;padding:4px 10px;}
+  .navitem svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.5;}
+  .navitem.active{color:var(--gold);}
+  .loading{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--gray);padding:16px 0;justify-content:center;}
+  .spinner{width:16px;height:16px;border:2px solid var(--border);
+           border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+  .msg{padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:12px;display:none;}
+  .msg.error{background:rgba(248,81,73,.1);color:var(--danger2);
+             border:1px solid rgba(248,81,73,.2);display:block;}
+  .msg.success{background:rgba(63,185,80,.1);color:var(--success);
+               border:1px solid rgba(63,185,80,.2);display:block;}
+  .empty{font-size:12px;color:var(--gray);text-align:center;padding:12px 0;}
+  #resultArea{display:none;}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <button class="back" onclick="goto('dashboard.html')">←</button>
+  <h1>Reports</h1>
+</div>
+
+<div class="main">
+  <div id="msgBox" class="msg"></div>
+
+  <!-- Date range (required for all reports) -->
+  <div class="date-row">
+    <label>From</label>
+    <input type="date" id="dateFrom"/>
+    <label>To</label>
+    <input type="date" id="dateTo"/>
+  </div>
+
+  <!-- Report type selector -->
+  <div class="report-grid" id="reportGrid">
+
+    <div class="report-card selected" data-type="full_security_summary"
+         onclick="selectReport(this)">
+      <div class="report-icon">📊</div>
+      <div class="report-name">Full summary</div>
+      <div class="report-desc">Estate-wide security overview — 6 metrics</div>
+    </div>
+
+    <div class="report-card" data-type="incident_summary"
+         onclick="selectReport(this)">
+      <div class="report-icon">📋</div>
+      <div class="report-name">Monthly incidents</div>
+      <div class="report-desc">Volume, resolution rates, type breakdown</div>
+    </div>
+
+    <div class="report-card" data-type="crime_trend"
+         onclick="selectReport(this)">
+      <div class="report-icon">🗺️</div>
+      <div class="report-name">Crime trends</div>
+      <div class="report-desc">Time patterns, CCTV coverage, block analysis</div>
+    </div>
+
+    <div class="report-card" data-type="panic_statistics"
+         onclick="selectReport(this)">
+      <div class="report-icon">🚨</div>
+      <div class="report-name">Panic statistics</div>
+      <div class="report-desc">Response times, guard performance</div>
+    </div>
+
+    <div class="report-card" data-type="guard_performance"
+         onclick="selectReport(this)">
+      <div class="report-icon">👮</div>
+      <div class="report-name">Guard performance</div>
+      <div class="report-desc">Activity scores, incident and panic metrics</div>
+    </div>
+
+    <div class="report-card" data-type="subscription_summary"
+         onclick="selectReport(this)">
+      <div class="report-icon">💳</div>
+      <div class="report-name">Payment summary</div>
+      <div class="report-desc">Revenue, collection rate, overdue list</div>
+    </div>
+
+  </div>
+
+  <!-- Generate button -->
+  <button class="gen-btn" id="genBtn" onclick="generateReport()">
+    Generate report
+  </button>
+
+  <!-- Result area -->
+  <div id="resultArea"></div>
+
+</div>
+
+<!-- Bottom nav -->
+<div class="bottomnav">
+  <button class="navitem" onclick="goto('dashboard.html')">
+    <svg viewBox="0 0 24 24"><path d="M3 12l9-9 9 9M5 10v9a1 1 0 001 1h4v-5h4v5h4a1 1 0 001-1v-9"/></svg>
+    Home
+  </button>
+  <button class="navitem" onclick="goto('residents.html')">
+    <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+    Residents
+  </button>
+  <button class="navitem" onclick="goto('incidents.html')">
+    <svg viewBox="0 0 24 24"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+    Incidents
+  </button>
+  <button class="navitem" onclick="goto('payments.html')">
+    <svg viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
+    Payments
+  </button>
+  <button class="navitem active" onclick="goto('reports.html')">
+    <svg viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+    Reports
+  </button>
+</div>
+
+<script>
+// ============================================================
+//  Midview Admin — Reports
+//  All report endpoints require date_from and date_to.
+//  Multi-result-set responses destructured by named key.
+//  After generation, records report via POST /api/reports/record
+// ============================================================
+const API = 'http://localhost/midview-security-app/api';
+const token = localStorage.getItem('midview_token');
+const user  = JSON.parse(localStorage.getItem('midview_user') || 'null');
+if (!token || !user || user.role !== 'admin') {
+  window.location.href = '../shared/login.html';
+}
+function authHeaders() {
+  return { 'Authorization':`Bearer ${token}`, 'Content-Type':'application/json' };
+}
+function handleUnauth() {
+  localStorage.removeItem('midview_token');
+  localStorage.removeItem('midview_user');
+  window.location.href = '../shared/login.html';
+}
+function goto(p) { window.location.href = p; }
+
+// Set default date range
+(function() {
+  const now  = new Date();
+  const from = new Date(now.getFullYear(), now.getMonth(), 1);
+  document.getElementById('dateFrom').value = from.toISOString().slice(0,10);
+  document.getElementById('dateTo').value   = now.toISOString().slice(0,10);
+})();
+
+// ---- Report type selection ---------------------------------
+let selectedType = 'full_security_summary';
+
+function selectReport(card) {
+  document.querySelectorAll('.report-card').forEach(c=>c.classList.remove('selected'));
+  card.classList.add('selected');
+  selectedType = card.dataset.type;
+}
+
+// ---- Generate report ---------------------------------------
+async function generateReport() {
+  const from = document.getElementById('dateFrom').value;
+  const to   = document.getElementById('dateTo').value;
+
+  if (!from || !to) {
+    showMsg('Select a date range first.','error'); return;
+  }
+  if (from > to) {
+    showMsg('Start date must be before end date.','error'); return;
+  }
+
+  const btn = document.getElementById('genBtn');
+  btn.disabled    = true;
+  btn.textContent = 'Generating…';
+
+  const resultArea = document.getElementById('resultArea');
+  resultArea.style.display = 'block';
+  resultArea.innerHTML = '<div class="loading"><div class="spinner"></div> Generating report…</div>';
+
+  // Route to correct endpoint based on type
+  const endpoints = {
+    full_security_summary: `full-summary`,
+    incident_summary:      `monthly-incidents`,
+    crime_trend:           `crime-trends`,
+    panic_statistics:      `panic-statistics`,
+    guard_performance:     `guard-performance`,
+    subscription_summary:  `payment-summary`,
+  };
+  const endpoint = endpoints[selectedType];
+
+  try {
+    const res  = await fetch(
+      `${API}/reports/${endpoint}?date_from=${from}&date_to=${to}`,
+      { headers: authHeaders() }
+    );
+    if (res.status===401) { handleUnauth(); return; }
+    const data = await res.json();
+
+    if (!data.success) {
+      resultArea.innerHTML='<p class="empty">Report generation failed.</p>';
+      showMsg(data.message||'Failed.','error');
+      return;
+    }
+
+    renderReport(selectedType, data.data, from, to);
+
+    // Record report generation for KDPA audit trail
+    await fetch(`${API}/reports/record`, {
+      method:'POST', headers:authHeaders(),
+      body:JSON.stringify({
+        report_type: selectedType === 'full_security_summary'
+                      ? 'full_security_summary'
+                      : selectedType,
+        date_from:   from,
+        date_to:     to,
+      }),
+    }).catch(()=>{});
+
+  } catch (err) {
+    resultArea.innerHTML='<p class="empty">Server error. Please try again.</p>';
+  } finally {
+    btn.disabled    = false;
+    btn.textContent = 'Generate report';
+  }
+}
+
+// ---- Render report result ----------------------------------
+function renderReport(type, data, from, to) {
+  const area = document.getElementById('resultArea');
+  let html   = `<p style="font-size:11px;color:var(--gray);margin-bottom:10px;">
+    Period: ${from} to ${to}
+  </p>`;
+
+  if (type === 'full_security_summary') {
+    const ov  = data.estate_overview      || {};
+    const inc = data.incident_overview    || {};
+    const pan = data.panic_performance    || {};
+    const pay = data.payment_collection   || {};
+    const esc = data.escalation_summary   || {};
+    const sms = data.sms_summary          || {};
+
+    html += metricCard('Estate overview', [
+      ['Verified residents',   ov.total_verified_residents],
+      ['Pending verification', ov.pending_verification],
+      ['Active guards',        ov.active_guards],
+      ['Active CCTV feeds',    ov.active_cctv_feeds],
+    ]);
+    html += metricCard('Incidents', [
+      ['Total',        inc.total_incidents],
+      ['Open',         inc.open_incidents],
+      ['Under review', inc.under_review],
+      ['Resolved',     inc.resolved_incidents],
+      ['Resolution %', inc.resolution_rate_pct != null ? `${inc.resolution_rate_pct}%`:'—'],
+    ]);
+    html += metricCard('Panic alerts', [
+      ['Total',         pan.total_panic_alerts],
+      ['Currently active', pan.currently_active],
+      ['Closed',        pan.closed_alerts],
+      ['Avg response',  pan.avg_response_mins != null ? `${pan.avg_response_mins} mins`:'—'],
+    ]);
+    html += metricCard('Payments', [
+      ['Total revenue',             `KES ${Number(pay.total_revenue_ksh||0).toLocaleString()}`],
+      ['Without active subscription', pay.residents_without_active_sub],
+    ]);
+    html += metricCard('Police escalations', [
+      ['Total escalations',       esc.total_escalations],
+      ['Unique incidents',        esc.unique_incidents_escalated],
+      ['Stations contacted',      esc.police_stations_contacted],
+    ]);
+    html += metricCard('SMS communications', [
+      ['Total logged',        sms.total_sms_logged],
+      ['Delivered',           sms.delivered],
+      ['Failed',              sms.failed],
+      ['Delivery rate',       sms.delivery_success_rate_pct != null ? `${sms.delivery_success_rate_pct}%`:'—'],
+    ]);
+
+  } else if (type === 'incident_summary') {
+    const monthly = data.monthly_volume   || [];
+    const types   = data.type_breakdown   || [];
+    if (monthly.length) {
+      html += tableCard('Monthly volume',
+        ['Month','Total','Open','Resolved','Escalated'],
+        monthly.map(m => [
+          `${m.month_name} ${m.report_year}`,
+          m.total_incidents,
+          m.open_incidents,
+          m.resolved_incidents,
+          m.escalated_to_police,
+        ])
+      );
+    }
+    if (types.length) {
+      html += tableCard('Type breakdown',
+        ['Type','Count','Resolved','% of total'],
+        types.map(t => [
+          t.incident_type, t.total_count, t.resolved_count,
+          `${t.pct_of_total}%`,
+        ])
+      );
+    }
+
+  } else if (type === 'panic_statistics') {
+    const ov  = data.overall_performance  || {};
+    const grd = data.guard_performance    || [];
+    html += metricCard('Panic performance', [
+      ['Total alerts',     ov.total_panics],
+      ['Active now',       ov.currently_active],
+      ['Avg response',     ov.avg_response_mins != null ? `${ov.avg_response_mins} mins`:'—'],
+      ['Fastest response', ov.fastest_response_mins != null ? `${ov.fastest_response_mins} mins`:'—'],
+      ['Within target',    ov.within_target_count],
+      ['Target compliance',ov.within_target_pct != null ? `${ov.within_target_pct}%`:'—'],
+      ['Target time',      `${ov.target_minutes} mins`],
+    ]);
+    if (grd.length) {
+      html += tableCard('Guard response',
+        ['Guard','Responses','Avg (mins)','Target %'],
+        grd.map(g => [
+          g.guard_name, g.total_responses,
+          g.avg_response_mins, `${g.target_compliance_pct}%`,
+        ])
+      );
+    }
+
+  } else if (type === 'guard_performance') {
+    const guards = data.guards || [];
+    if (guards.length) {
+      html += tableCard('Guard performance',
+        ['Guard','Incidents','Panics','Avg resp (m)','SMS','Escalations','Score'],
+        guards.map(g => [
+          g.guard_name, g.incidents_handled, g.panics_responded,
+          g.avg_panic_response_mins||'—', g.sms_sent,
+          g.police_escalations, g.activity_score,
+        ])
+      );
+    } else {
+      html += '<p class="empty">No guard activity in this period.</p>';
+    }
+
+  } else if (type === 'subscription_summary') {
+    const sum = data.revenue_summary   || {};
+    const mon = data.monthly_breakdown || [];
+    const ovd = data.overdue_residents || [];
+    html += metricCard('Revenue summary', [
+      ['Completed payments', sum.completed_payments],
+      ['Total revenue',      `KES ${Number(sum.total_revenue_ksh||0).toLocaleString()}`],
+      ['Collection rate',    sum.collection_rate_pct != null ? `${sum.collection_rate_pct}%`:'—'],
+      ['Active subscriptions', sum.active_subscriptions],
+    ]);
+    if (mon.length) {
+      html += tableCard('Monthly revenue',
+        ['Month','Payments','Revenue (KES)','Unique payers'],
+        mon.map(m=>[
+          `${m.month_name} ${m.report_year}`,
+          m.payment_count,
+          Number(m.monthly_revenue_ksh||0).toLocaleString(),
+          m.unique_payers,
+        ])
+      );
+    }
+    if (ovd.length) {
+      html += tableCard('Overdue residents',
+        ['Resident','House','Days overdue','Category'],
+        ovd.map(r=>[
+          r.resident_name, r.house_no,
+          r.days_overdue ?? 'Never paid', r.overdue_category,
+        ])
+      );
+    }
+
+  } else {
+    html += `<pre style="font-size:11px;color:var(--gray);
+                          white-space:pre-wrap;word-break:break-all;">
+      ${JSON.stringify(data, null, 2)}</pre>`;
+  }
+
+  document.getElementById('resultArea').innerHTML = html;
+}
+
+// ---- Render helpers ----------------------------------------
+function metricCard(title, rows) {
+  return `<div class="result-card">
+    <h3>${title}</h3>
+    ${rows.map(([label, val]) => `
+      <div class="metric-row">
+        <span class="metric-label">${label}</span>
+        <span class="metric-val">${val ?? '—'}</span>
+      </div>`).join('')}
+  </div>`;
+}
+
+function tableCard(title, headers, rows) {
+  if (!rows.length) return '';
+  return `<div class="result-card">
+    <h3>${title}</h3>
+    <div style="overflow-x:auto;">
+      <table class="data-table">
+        <thead><tr>${headers.map(h=>`<th>${h}</th>`).join('')}</tr></thead>
+        <tbody>
+          ${rows.map(r=>`<tr>${r.map(c=>`<td>${c??'—'}</td>`).join('')}</tr>`).join('')}
+        </tbody>
+      </table>
+    </div>
+  </div>`;
+}
+
+function showMsg(t,type) {
+  const el=document.getElementById('msgBox');
+  el.textContent=t; el.className=`msg ${type}`;
+  setTimeout(()=>{el.className='msg';},5000);
+}
+</script>
+</body>
+</html>

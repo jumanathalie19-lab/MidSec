@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Midview — CCTV Feeds</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700&family=DM+Sans:wght@300;400;500&display=swap"
+      rel="stylesheet">
+<style>
+  :root{
+    --bg:#0d1117;--surface:#161b22;--border:rgba(255,255,255,.08);
+    --text:#e6edf3;--gray:#7d8590;--accent:#58a6ff;
+    --danger2:#ff7b72;--success:#3fb950;--warn:#d29922;--navy:#102a43;
+    --font-head:'Syne',sans-serif;--font-body:'DM Sans',sans-serif;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{background:var(--bg);color:var(--text);font-family:var(--font-body);
+       min-height:100vh;display:flex;flex-direction:column;}
+  .topbar{background:var(--navy);padding:14px 20px;display:flex;
+          align-items:center;justify-content:space-between;
+          position:sticky;top:0;z-index:100;
+          border-bottom:1px solid rgba(255,255,255,.06);}
+  .topbar h1{font-family:var(--font-head);font-size:16px;font-weight:700;}
+  .back{background:none;border:none;color:#fff;font-size:20px;
+        cursor:pointer;padding:0 10px 0 0;}
+  .main{flex:1;padding:16px;max-width:900px;margin:0 auto;width:100%;}
+  /* Status summary */
+  .status-row{display:flex;gap:10px;margin-bottom:16px;}
+  .status-pill{
+    background:var(--surface);border:1px solid var(--border);
+    border-radius:20px;padding:6px 14px;font-size:12px;
+    display:flex;align-items:center;gap:6px;
+  }
+  .dot-on  {width:7px;height:7px;border-radius:50%;background:var(--success);}
+  .dot-off {width:7px;height:7px;border-radius:50%;background:var(--gray);}
+  /* Feed cards */
+  .feed-grid{display:grid;gap:12px;}
+  .feed-card{
+    background:var(--surface);border:1px solid var(--border);
+    border-radius:12px;overflow:hidden;cursor:pointer;
+    transition:border-color .2s;
+  }
+  .feed-card:hover{border-color:rgba(88,166,255,.3);}
+  .feed-card.offline{opacity:.5;}
+  .feed-preview{
+    background:#000;height:140px;display:flex;
+    align-items:center;justify-content:center;
+    position:relative;overflow:hidden;
+  }
+  .feed-preview video,.feed-preview iframe{
+    width:100%;height:100%;object-fit:cover;
+  }
+  .feed-offline-overlay{
+    display:flex;flex-direction:column;align-items:center;gap:6px;
+    color:var(--gray);font-size:12px;
+  }
+  .feed-offline-overlay svg{width:28px;height:28px;stroke:currentColor;
+                             fill:none;stroke-width:1.5;}
+  .live-badge{
+    position:absolute;top:8px;left:8px;background:var(--danger);
+    color:#fff;font-size:10px;font-weight:700;padding:2px 7px;
+    border-radius:4px;display:flex;align-items:center;gap:4px;
+  }
+  .live-dot{width:5px;height:5px;border-radius:50%;background:#fff;
+            animation:pulse 1s infinite;}
+  @keyframes pulse{0%,100%{opacity:1;}50%{opacity:.3;}}
+  .feed-info{padding:12px;}
+  .feed-name{font-family:var(--font-head);font-size:14px;font-weight:600;}
+  .feed-location{font-size:12px;color:var(--gray);margin-top:3px;}
+  .feed-footer{
+    display:flex;align-items:center;justify-content:space-between;
+    margin-top:10px;
+  }
+  .status-chip{font-size:10px;font-weight:600;padding:2px 8px;border-radius:10px;}
+  .chip-online {background:rgba(63,185,80,.15);color:var(--success);}
+  .chip-offline{background:rgba(125,133,144,.1);color:var(--gray);}
+  .open-link{
+    font-size:12px;color:var(--accent);text-decoration:none;
+    font-weight:500;
+  }
+  /* Nearest feed section */
+  .nearest-card{
+    background:rgba(88,166,255,.06);border:1px solid rgba(88,166,255,.2);
+    border-radius:12px;padding:14px;margin-bottom:14px;
+  }
+  .nearest-card h3{font-size:12px;color:var(--accent);
+                   text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;}
+  /* Buttons */
+  .btn{padding:9px 16px;border-radius:8px;font-size:13px;font-weight:500;
+       cursor:pointer;border:none;font-family:var(--font-body);
+       transition:opacity .2s;display:inline-flex;align-items:center;gap:6px;}
+  .btn:disabled{opacity:.5;cursor:not-allowed;}
+  .btn-accent{background:rgba(88,166,255,.15);color:var(--accent);
+              border:1px solid rgba(88,166,255,.3);}
+  .btn:hover:not(:disabled){opacity:.8;}
+  /* Bottom nav */
+  .bottomnav{position:sticky;bottom:0;background:var(--surface);
+             border-top:1px solid var(--border);
+             display:flex;justify-content:space-around;padding:10px 0 14px;}
+  .navitem{display:flex;flex-direction:column;align-items:center;gap:3px;
+           background:none;border:none;color:var(--gray);cursor:pointer;
+           font-family:var(--font-body);font-size:10px;padding:4px 14px;}
+  .navitem svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.5;}
+  .navitem.active{color:var(--accent);}
+  .loading{display:flex;align-items:center;gap:8px;font-size:12px;
+           color:var(--gray);padding:8px 0;}
+  .spinner{width:14px;height:14px;border:2px solid var(--border);
+           border-top-color:var(--accent);border-radius:50%;
+           animation:spin .7s linear infinite;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+  .msg{padding:10px 14px;border-radius:8px;font-size:13px;
+       margin-bottom:12px;display:none;}
+  .msg.error{background:rgba(248,81,73,.1);color:var(--danger2);
+             border:1px solid rgba(248,81,73,.2);display:block;}
+  .msg.info{background:rgba(88,166,255,.08);color:var(--accent);
+            border:1px solid rgba(88,166,255,.2);display:block;}
+  .empty{font-size:12px;color:var(--gray);text-align:center;padding:16px 0;}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div style="display:flex;align-items:center;">
+    <button class="back" onclick="goto('dashboard.html')">←</button>
+    <h1>CCTV Feeds</h1>
+  </div>
+  <button class="btn btn-accent" style="font-size:12px;padding:6px 12px"
+          onclick="findNearest()">
+    📍 Nearest
+  </button>
+</div>
+
+<div class="main">
+
+  <div id="msgBox" class="msg"></div>
+
+  <!-- Status summary pills -->
+  <div class="status-row">
+    <div class="status-pill">
+      <div class="dot-on"></div>
+      <span id="onlineCount">—</span> online
+    </div>
+    <div class="status-pill">
+      <div class="dot-off"></div>
+      <span id="offlineCount">—</span> offline
+    </div>
+  </div>
+
+  <!-- Nearest feed (shown after GPS lookup) -->
+  <div class="nearest-card" id="nearestCard" style="display:none;">
+    <h3>📍 Nearest active feed</h3>
+    <div id="nearestContent"></div>
+  </div>
+
+  <!-- Feed grid -->
+  <div id="feedGrid">
+    <div class="loading"><div class="spinner"></div> Loading feeds…</div>
+  </div>
+
+</div>
+
+<!-- Bottom nav -->
+<div class="bottomnav">
+  <button class="navitem" onclick="goto('dashboard.html')">
+    <svg viewBox="0 0 24 24"><path d="M3 12l9-9 9 9M5 10v9a1 1 0 001 1h4v-5h4v5h4a1 1 0 001-1v-9"/></svg>
+    Home
+  </button>
+  <button class="navitem" onclick="goto('panic.html')">
+    <svg viewBox="0 0 24 24"><path d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+    Panics
+  </button>
+  <button class="navitem" onclick="goto('incidents.html')">
+    <svg viewBox="0 0 24 24"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+    Incidents
+  </button>
+  <button class="navitem active" onclick="goto('cctv.html')">
+    <svg viewBox="0 0 24 24"><path d="M15 10l4.553-2.276A1 1 0 0121 8.723v6.554a1 1 0 01-1.447.894L15 14M3 8a2 2 0 012-2h10a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8z"/></svg>
+    CCTV
+  </button>
+  <button class="navitem" onclick="guardLogout()" style="color:var(--danger2);">
+    <svg viewBox="0 0 24 24"><path d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
+    Logout
+  </button>
+</div>
+
+<script>
+// ============================================================
+//  Midview — Guard CCTV
+//  APIs: GET /api/cctv                     — all feeds
+//        GET /api/cctv/nearest?lat=X&lng=Y — nearest feed
+//
+//  stream_url returned to guards (needed for live feed access).
+//  stream_url is NOT returned to residents (role-aware disclosure
+//  enforced inside sp_get_all_cctv_feeds via requesting_user_id).
+// ============================================================
+const API = 'http://localhost/midview-security-app/api';
+
+const token = localStorage.getItem('midview_token');
+const user  = JSON.parse(localStorage.getItem('midview_user') || 'null');
+if (!token || !user || !['guard','admin'].includes(user.role)) {
+  window.location.href = '../shared/login.html';
+}
+
+function authHeaders() {
+  return { 'Authorization':`Bearer ${token}`, 'Content-Type':'application/json' };
+}
+function handleUnauth() {
+  localStorage.removeItem('midview_token');
+  localStorage.removeItem('midview_user');
+  window.location.href = '../shared/login.html';
+}
+function goto(p)    { window.location.href = p; }
+function guardLogout() {
+  if (!confirm('Sign out?')) return;
+  localStorage.removeItem('midview_token');
+  localStorage.removeItem('midview_user');
+  window.location.href = '../shared/login.html';
+}
+
+// ---- Load all CCTV feeds -----------------------------------
+// GET /api/cctv
+// requesting_user_id passed in JWT — procedure returns stream_url
+// to guard/admin callers; NULL to resident callers.
+async function loadFeeds() {
+  try {
+    const res  = await fetch(`${API}/cctv`, { headers: authHeaders() });
+    if (res.status === 401) { handleUnauth(); return; }
+    const data = await res.json();
+    const el   = document.getElementById('feedGrid');
+
+    if (!data.success || !data.data?.length) {
+      el.innerHTML = '<p class="empty">No CCTV feeds configured.</p>';
+      return;
+    }
+
+    const feeds = data.data;
+    const online  = feeds.filter(f => f.feed_status === 'active').length;
+    const offline = feeds.length - online;
+    document.getElementById('onlineCount').textContent  = online;
+    document.getElementById('offlineCount').textContent = offline;
+
+    el.innerHTML = `<div class="feed-grid">${feeds.map(f => feedCardHtml(f)).join('')}</div>`;
+
+  } catch (err) {
+    document.getElementById('feedGrid').innerHTML =
+      '<p class="empty">Could not load feeds.</p>';
+  }
+}
+
+function feedCardHtml(f) {
+  const isActive = f.feed_status === 'active';
+  const preview  = f.stream_url && isActive
+    ? `<video src="${f.stream_url}" autoplay muted playsinline
+              style="width:100%;height:100%;object-fit:cover;"
+              onerror="this.parentElement.innerHTML='<div class=feed-offline-overlay>
+                <svg viewBox=\\'0 0 24 24\\'><path d=\\'M1 1l22 22M17 17H3a2 2 0 01-2-2V7a2 2 0 012-2h3m3-3h4l2 2h4a2 2 0 012 2v9.34m-7.72-2.06A2 2 0 0111 15H9\\'/>
+                </svg><span>Feed unavailable</span></div>'">
+       </video>`
+    : `<div class="feed-offline-overlay">
+         <svg viewBox="0 0 24 24">
+           <path d="M1 1l22 22M17 17H3a2 2 0 01-2-2V7a2 2 0 012-2h3m3-3h4l2 2h4a2 2 0 012 2v9.34m-7.72-2.06A2 2 0 0111 15H9"/>
+         </svg>
+         <span>${isActive ? 'Feed loading…' : 'Camera offline'}</span>
+       </div>`;
+
+  return `
+    <div class="feed-card ${isActive ? '' : 'offline'}">
+      <div class="feed-preview">
+        ${preview}
+        ${isActive ? '<div class="live-badge"><div class="live-dot"></div>LIVE</div>' : ''}
+      </div>
+      <div class="feed-info">
+        <div class="feed-name">${f.feed_name}</div>
+        <div class="feed-location">📍 ${f.location}</div>
+        <div class="feed-footer">
+          <span class="status-chip ${isActive ? 'chip-online' : 'chip-offline'}">
+            ${isActive ? 'Online' : 'Offline'}
+          </span>
+          ${f.stream_url && isActive
+            ? `<a href="${f.stream_url}" target="_blank" rel="noopener"
+                  class="open-link">Open feed ↗</a>`
+            : ''}
+        </div>
+      </div>
+    </div>`;
+}
+
+// ---- Find nearest feed -------------------------------------
+// GET /api/cctv/nearest?latitude=X&longitude=Y
+// stream_url NOT returned by this procedure (server-side only)
+// Guard retrieves stream_url from loadFeeds() feed card
+function findNearest() {
+  if (!navigator.geolocation) {
+    showMsg('Geolocation not available on this device.', 'error'); return;
+  }
+  showMsg('Getting your location…', 'info');
+
+  navigator.geolocation.getCurrentPosition(async pos => {
+    try {
+      const lat = pos.coords.latitude;
+      const lng = pos.coords.longitude;
+      const res = await fetch(
+        `${API}/cctv/nearest?latitude=${lat}&longitude=${lng}`,
+        { headers: authHeaders() }
+      );
+      if (res.status === 401) { handleUnauth(); return; }
+      const data = await res.json();
+
+      const card = document.getElementById('nearestCard');
+      const cont = document.getElementById('nearestContent');
+      card.style.display = 'block';
+
+      if (!data.success || !data.data) {
+        cont.innerHTML =
+          '<p style="font-size:12px;color:var(--gray)">No active feeds nearby.</p>';
+        return;
+      }
+
+      const f = data.data;
+      cont.innerHTML = `
+        <div style="font-size:14px;font-weight:600;margin-bottom:4px;">
+          ${f.feed_name}
+        </div>
+        <div style="font-size:12px;color:var(--gray);">
+          📍 ${f.location}
+          · ~${(f.distance_approx * 111).toFixed(0)}m away
+        </div>
+        <p style="font-size:11px;color:var(--gray);margin-top:6px;">
+          Open the feed from the list below to view the stream.
+        </p>`;
+
+      document.getElementById('msgBox').className = 'msg';
+
+    } catch (err) {
+      showMsg('Could not find nearest feed.', 'error');
+    }
+  }, () => {
+    showMsg('Location access denied. Please enable GPS.', 'error');
+  }, { timeout: 8000 });
+}
+
+function showMsg(text, type) {
+  const el = document.getElementById('msgBox');
+  el.textContent = text;
+  el.className   = `msg ${type}`;
+  if (type !== 'info') setTimeout(() => { el.className = 'msg'; }, 5000);
+}
+
+loadFeeds();
+</script>
+</body>
+</html>
