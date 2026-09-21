@@ -168,4 +168,60 @@ class UserModel extends BaseModel {
 
         return $this->fetchOne($stmt);
     }
+
+        // [A8] adminExists()
+    public function adminExists(): bool {
+        $result = $this->conn->query(
+            "SELECT COUNT(*) AS cnt FROM users WHERE role = 'admin'"
+        );
+        $row = $result ? $result->fetch_assoc() : ['cnt' => 0];
+        return (int)($row['cnt'] ?? 0) > 0;
+    }
+
+    // [A9] bootstrapFirstAdmin()
+    public function bootstrapFirstAdmin(
+        string $first_name,
+        string $last_name,
+        string $email,
+        string $phone_no,
+        string $password,
+        string $house_no
+    ): array {
+        $password_hash = password_hash($password, PASSWORD_BCRYPT);
+
+        $stmt = $this->conn->prepare(
+            "CALL sp_bootstrap_first_admin(?, ?, ?, ?, ?, ?)"
+        );
+        $stmt->bind_param(
+            'ssssss',
+            $first_name, $last_name, $email,
+            $phone_no, $password_hash, $house_no
+        );
+
+        return $this->fetchOne($stmt);
+    }
+
+    // [A10] getAllResidents()
+public function getAllResidents(int $admin_id, ?string $search = null): array {
+    $search = $search ?? '';
+
+    $stmt = $this->conn->prepare(
+        "CALL sp_get_all_residents(?, ?)"
+    );
+    $stmt->bind_param('is', $admin_id, $search);
+
+    return $this->fetchAll($stmt);
+}
+
+// [A11] getAllStaff()
+public function getAllStaff(int $admin_id, ?string $search = null): array {
+    $search = $search ?? '';
+
+    $stmt = $this->conn->prepare(
+        "CALL sp_get_all_staff(?, ?)"
+    );
+    $stmt->bind_param('is', $admin_id, $search);
+
+    return $this->fetchAll($stmt);
+}
 }

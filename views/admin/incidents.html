@@ -47,6 +47,7 @@
   .b-review{background:rgba(210,153,34,.15);color:var(--warn);}
   .b-resolved{background:rgba(63,185,80,.15);color:var(--success);}
   .b-deleted{background:rgba(125,133,144,.1);color:var(--gray);}
+  .b-esc{background:rgba(88,166,255,.15);color:var(--accent);}
   .overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);
            z-index:200;align-items:flex-end;}
   .overlay.open{display:flex;}
@@ -70,12 +71,18 @@
        cursor:pointer;border:none;font-family:var(--font-body);
        transition:opacity .2s;width:100%;margin-bottom:8px;}
   .btn:disabled{opacity:.5;cursor:not-allowed;}
+  .btn-primary{background:var(--accent);color:#0d1117;font-weight:600;}
   .btn-danger-full{background:rgba(248,81,73,.1);color:var(--danger2);
                    border:1px solid rgba(248,81,73,.3);}
   .btn-success-full{background:rgba(63,185,80,.1);color:var(--success);
                     border:1px solid rgba(63,185,80,.3);}
+  .btn-accent-full{background:rgba(88,166,255,.1);color:var(--accent);
+                    border:1px solid rgba(88,166,255,.3);}
   .btn-ghost{background:transparent;color:var(--gray);border:1px solid var(--border);}
   .btn:hover:not(:disabled){opacity:.8;}
+  .esc-info-box{background:rgba(88,166,255,.06);border:1px solid rgba(88,166,255,.2);
+                border-radius:10px;padding:12px;margin-top:6px;margin-bottom:6px;}
+  .esc-info-box .ref{font-family:monospace;font-size:13px;font-weight:600;color:var(--accent);}
   .bottomnav{position:sticky;bottom:0;background:var(--surface);
              border-top:1px solid var(--border);
              display:flex;justify-content:space-around;padding:10px 0 14px;}
@@ -101,7 +108,7 @@
 <body>
 
 <div class="topbar">
-  <button class="back" onclick="goto('dashboard.html')">←</button>
+  <button class="back" onclick="goHome()">←</button>
   <h1>Incidents</h1>
   <span style="font-size:12px;color:var(--gray)" id="countLabel"></span>
 </div>
@@ -145,6 +152,46 @@
     <h2 id="sheetTitle">Incident</h2>
     <div id="sheetDetail"></div>
 
+    <!-- Police escalation status / action area -->
+    <div id="escSection"></div>
+
+    <!-- Escalate form (hidden by default) -->
+    <div id="escalateForm" style="display:none;margin-top:14px;">
+      <div class="field">
+        <label>Police station name (required)</label>
+        <input type="text" id="escStation" placeholder="e.g. Karen Police Station" maxlength="150"/>
+      </div>
+      <div class="field">
+        <label>Escalation notes (required)</label>
+        <textarea id="escNotes" rows="3"
+                  placeholder="Why does this incident need police involvement?"
+                  maxlength="500"></textarea>
+      </div>
+      <button class="btn btn-accent-full" id="escalateBtn"
+              onclick="submitEscalate()">Escalate to police</button>
+      <button class="btn btn-ghost" onclick="hideEscalateForm()">Cancel</button>
+    </div>
+
+    <!-- Update status form (hidden by default) -->
+    <div id="statusForm" style="display:none;margin-top:14px;">
+      <div class="field">
+        <label>New status</label>
+        <select id="newIncStatus">
+          <option value="open">Open</option>
+          <option value="under_review">Under review</option>
+          <option value="resolved">Resolved</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Note (required)</label>
+        <textarea id="guardNote" rows="3"
+                  placeholder="Add any notes about this update…" maxlength="500"></textarea>
+      </div>
+      <button class="btn btn-primary" id="statusBtn"
+              onclick="submitStatusUpdate()">Update status</button>
+      <button class="btn btn-ghost" onclick="hideStatusForm()">Cancel</button>
+    </div>
+
     <!-- Soft-delete form (hidden by default) -->
     <div id="deleteForm" style="display:none;margin-top:14px;">
       <div class="field">
@@ -179,7 +226,7 @@
 
 <!-- Bottom nav -->
 <div class="bottomnav">
-  <button class="navitem" onclick="goto('dashboard.html')">
+  <button class="navitem" onclick="goHome()">
     <svg viewBox="0 0 24 24"><path d="M3 12l9-9 9 9M5 10v9a1 1 0 001 1h4v-5h4v5h4a1 1 0 001-1v-9"/></svg>
     Home
   </button>
@@ -202,7 +249,7 @@
 </div>
 
 <script>
-const API = 'http://localhost/midview-security-app/api';
+const API = 'http://localhost/MIDSEC/api';
 const token = localStorage.getItem('midview_token');
 const user  = JSON.parse(localStorage.getItem('midview_user') || 'null');
 if (!token || !user || user.role !== 'admin') {
@@ -233,6 +280,13 @@ const badgeHtml = s => ({
   under_review:'<span class="badge b-review">Under review</span>',
   resolved:'<span class="badge b-resolved">Resolved</span>',
 }[s]||s);
+
+const escBadge = s => ({
+  acknowledged:'<span class="badge b-esc">Acknowledged</span>',
+  dispatched:'<span class="badge b-esc">Dispatched</span>',
+  closed:'<span class="badge b-resolved">Closed</span>',
+  no_action:'<span class="badge b-deleted">No action</span>',
+}[s]||`<span class="badge b-esc">${s}</span>`);
 
 function timeAgo(d) {
   const s=Math.floor((Date.now()-new Date(d))/1000);
@@ -334,8 +388,11 @@ async function loadDeleted() {
 // ---- Open incident detail ----------------------------------
 async function openIncident(id, isDeleted) {
   currentId = id;
-  document.getElementById('deleteForm').style.display  = 'none';
-  document.getElementById('restoreForm').style.display = 'none';
+  document.getElementById('deleteForm').style.display   = 'none';
+  document.getElementById('restoreForm').style.display  = 'none';
+  document.getElementById('escalateForm').style.display = 'none';
+  document.getElementById('statusForm').style.display   = 'none';
+  document.getElementById('escSection').innerHTML = '';
   document.getElementById('sheetDetail').innerHTML =
     '<div class="loading"><div class="spinner"></div></div>';
   document.getElementById('overlay').classList.add('open');
@@ -378,13 +435,158 @@ async function openIncident(id, isDeleted) {
         </button>`;
     } else {
       actions.innerHTML=`
+        <button class="btn btn-primary" onclick="showStatusForm()">
+          Update status
+        </button>
         <button class="btn btn-danger-full" onclick="showDeleteForm()">
           Soft-delete incident
         </button>
         <button class="btn btn-ghost" onclick="closeOverlay()">Close</button>`;
+      // Only check/offer police escalation for active (non-deleted) incidents
+      loadEscalationStatus(id);
     }
   } catch {
     document.getElementById('sheetDetail').innerHTML='<p class="empty">Could not load.</p>';
+  }
+}
+
+// ---- Check / show police escalation status ------------------
+// GET /api/police/incident/{incident_id}
+// If an escalation already exists, show its reference code and
+// status instead of offering the escalate button again (the
+// procedure blocks duplicate escalations per incident anyway,
+// but showing existing status here is better UX than a 409).
+async function loadEscalationStatus(incidentId) {
+  const box = document.getElementById('escSection');
+  try {
+    const res  = await fetch(`${API}/police/incident/${incidentId}`, { headers: authHeaders() });
+    if (res.status === 401) { handleUnauth(); return; }
+    const data = await res.json();
+
+    if (data.success && data.data?.length) {
+      const e = data.data[0];
+      box.innerHTML = `
+        <div class="esc-info-box">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+            <span class="ref">${e.reference_code}</span>
+            ${escBadge(e.status || 'acknowledged')}
+          </div>
+          <div style="font-size:12px;color:var(--gray);">
+            🚔 ${e.station_name} · escalated ${timeAgo(e.escalated_at)}
+          </div>
+        </div>`;
+    } else {
+      // Not yet escalated — offer the button
+      box.innerHTML = `
+        <button class="btn btn-accent-full" onclick="showEscalateForm()">
+          🚔 Escalate to police
+        </button>`;
+    }
+  } catch {
+    // Fail quietly — escalation status is supplementary info,
+    // not worth blocking the rest of the incident detail view.
+    box.innerHTML = '';
+  }
+}
+
+// ---- Escalate form -------------------------------------------
+function showEscalateForm() {
+  document.getElementById('escalateForm').style.display = 'block';
+  document.getElementById('escSection').style.display    = 'none';
+  document.getElementById('sheetActions').style.display   = 'none';
+}
+function hideEscalateForm() {
+  document.getElementById('escalateForm').style.display = 'none';
+  document.getElementById('escSection').style.display    = 'block';
+  document.getElementById('sheetActions').style.display   = 'flex';
+}
+
+// ---- Submit escalation ---------------------------------------
+// POST /api/police/escalate
+async function submitEscalate() {
+  const station = document.getElementById('escStation').value.trim();
+  const notes   = document.getElementById('escNotes').value.trim();
+
+  if (!station) { showMsg('Police station name is required.','error'); return; }
+  if (!notes)   { showMsg('Escalation notes are required.','error'); return; }
+
+  const btn = document.getElementById('escalateBtn');
+  btn.disabled = true; btn.textContent = 'Escalating…';
+
+  try {
+    const res = await fetch(`${API}/police/escalate`, {
+      method: 'POST', headers: authHeaders(),
+      body: JSON.stringify({
+        incident_id: currentId,
+        station_name: station,
+        notes: notes,
+      }),
+    });
+    if (res.status === 401) { handleUnauth(); return; }
+    const data = await res.json();
+
+    if (res.ok && data.success) {
+      showMsg(`Escalated. Reference: ${data.data.reference_code}`, 'success');
+      hideEscalateForm();
+      openIncident(currentId, false); // refresh detail to show new escalation status
+      loadActive(); // refresh list — incident status now under_review
+    } else {
+      showMsg(data.message || 'Escalation failed.', 'error');
+    }
+  } catch {
+    showMsg('Server error.', 'error');
+  } finally {
+    btn.disabled = false; btn.textContent = 'Escalate to police';
+  }
+}
+
+// ---- Status update form ----------------------------------------
+function showStatusForm() {
+  document.getElementById('statusForm').style.display   = 'block';
+  document.getElementById('escSection').style.display    = 'none';
+  document.getElementById('sheetActions').style.display  = 'none';
+}
+function hideStatusForm() {
+  document.getElementById('statusForm').style.display   = 'none';
+  document.getElementById('escSection').style.display    = 'block';
+  document.getElementById('sheetActions').style.display  = 'flex';
+}
+
+// ---- Submit status update --------------------------------------
+// PATCH /api/incidents/{id}/status
+async function submitStatusUpdate() {
+  const status = document.getElementById('newIncStatus').value;
+  const note   = document.getElementById('guardNote').value.trim();
+
+  // guard_note is mandatory per IncidentController::updateStatus()
+  if (!note) {
+    showMsg('A note is required when updating incident status.', 'error');
+    return;
+  }
+
+  const btn = document.getElementById('statusBtn');
+  btn.disabled = true; btn.textContent = 'Updating…';
+
+  try {
+    const res = await fetch(`${API}/incidents/${currentId}/status`, {
+      method: 'PATCH', headers: authHeaders(),
+      body: JSON.stringify({ status, guard_note: note }),
+    });
+    if (res.status === 401) { handleUnauth(); return; }
+    const data = await res.json();
+
+    if (res.ok && data.success) {
+      showMsg('Incident status updated.', 'success');
+      hideStatusForm();
+      openIncident(currentId, false);
+      loadActive();
+    } else {
+      showMsg(data.message || 'Update failed.', 'error');
+    }
+  } catch {
+    showMsg('Server error.', 'error');
+  } finally {
+    btn.disabled = false; btn.textContent = 'Update status';
   }
 }
 
@@ -455,6 +657,12 @@ function showMsg(t,type) {
 }
 function closeOverlay() { document.getElementById('overlay').classList.remove('open'); }
 function closeSheet(e)  { if(e.target===document.getElementById('overlay')) closeOverlay(); }
+
+function goHome(){
+  window.location.href=`../${user.role}/dashboard.html`;
+}
+
+
 
 loadActive();
 </script>

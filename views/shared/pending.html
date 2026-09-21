@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Midview Security — Registration Submitted</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700&family=DM+Sans:wght@300;400;500&display=swap"
+      rel="stylesheet">
+<link rel="stylesheet" href="../../css/main.css"/>
+<link rel="stylesheet" href="../../css/login.css"/>
+<style>
+  /* Page-specific layout — kept local since this view has a
+     different shape (centered status card) than the form pages. */
+  .pending-wrap{
+    min-height:calc(100vh - 53px); /* subtract topbar height */
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:24px;
+  }
+  .pending-card{
+    max-width:420px;
+    width:100%;
+    text-align:center;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:16px;
+  }
+  .pending-icon{
+    width:64px;
+    height:64px;
+    border-radius:50%;
+    background:rgba(59,158,255,0.12);
+    border:1px solid rgba(59,158,255,0.25);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:28px;
+  }
+  .pending-card h2{
+    font-family:'Syne',sans-serif;
+    font-size:20px;
+    font-weight:600;
+    color:var(--white);
+  }
+  .pending-card p{
+    font-size:14px;
+    color:var(--gray);
+    line-height:1.6;
+  }
+  .pending-card p strong{
+    color:var(--white);
+    font-weight:500;
+  }
+  .status-pill{
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    background:rgba(234,179,8,0.12);
+    color:#EAB308;
+    border:1px solid rgba(234,179,8,0.2);
+    padding:6px 14px;
+    border-radius:20px;
+    font-size:12px;
+    font-weight:600;
+    letter-spacing:.3px;
+    text-transform:uppercase;
+  }
+  .status-pill .dot{
+    width:6px;
+    height:6px;
+    border-radius:50%;
+    background:#EAB308;
+  }
+  .pending-actions{
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+    width:100%;
+    margin-top:8px;
+  }
+</style>
+</head>
+<body>
+
+<!-- Top bar -->
+<div class="topbar">
+  <a class="back" href="login.html">←</a>
+  <h1>Registration submitted</h1>
+</div>
+
+<div class="pending-wrap">
+  <div class="pending-card">
+
+    <div class="pending-icon">⏳</div>
+
+    <span class="status-pill"><span class="dot"></span>Pending approval</span>
+
+    <h2 id="greeting">Thanks for registering!</h2>
+
+    <p>
+      Your resident account has been created and is currently
+      <strong>awaiting admin verification</strong>. This is a manual
+      step our security team uses to confirm every resident before
+      granting access — it usually doesn't take long.
+    </p>
+
+    <p>
+      You'll be able to sign in once your account has been approved.
+      There's no need to register again in the meantime.
+    </p>
+
+    <div class="pending-actions">
+      <button class="btn btn-primary" onclick="window.location.href='login.html'">
+        Back to sign in
+      </button>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// ============================================================
+//  Midview Security — Pending approval screen
+//  Personalises the greeting using the first name saved by
+//  register.html in sessionStorage (one-time use, cleared
+//  immediately after reading so a refresh falls back to the
+//  generic greeting rather than re-showing a stale name).
+// ============================================================
+(function () {
+  const firstName = sessionStorage.getItem('reg_first_name');
+  if (firstName) {
+    document.getElementById('greeting').textContent =
+      `Thanks for registering, ${firstName}!`;
+    sessionStorage.removeItem('reg_first_name');
+  }
+})();
+</script>
+
+</body>
+</html>

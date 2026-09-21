@@ -1,4 +1,4 @@
-<style>
+
 *{box-sizing:border-box;margin:0;padding:0}
 :root{--navy:#0B1F3A;--navy2:#122849;--blue:#1A5EAB;--accent:#3B9EFF;--white:#F8FAFF;--gray:#8A9AB5;--danger:#E03E3E;--border:rgba(255,255,255,0.1)}
 body{font-family:'DM Sans',sans-serif;background:var(--navy);color:var(--white);min-height:100vh;display:flex;flex-direction:column}
@@ -23,4 +23,3 @@ body{font-family:'DM Sans',sans-serif;background:var(--navy);color:var(--white);
 .msg{padding:10px 14px;border-radius:8px;font-size:13px;display:none}
 .msg.error{background:rgba(224,62,62,0.12);color:#FF6B6B;border:1px solid rgba(224,62,62,0.2)}
 .msg.success{background:rgba(59,158,255,0.12);color:var(--accent);border:1px solid rgba(59,158,255,0.2)}
-</style>

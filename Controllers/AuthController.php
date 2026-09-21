@@ -94,6 +94,77 @@ class AuthController {
         );
     }
 
+
+        // ----------------------------------------------------------
+    //  POST /api/auth/bootstrap
+    //  Public, but self-disabling and secret-gated.
+    //
+    //  Creates the FIRST admin account. Only works once — the
+    //  stored procedure refuses to run once any admin exists
+    //  (checked at the DB layer, not just here, so it can't be
+    //  bypassed even if this PHP check were somehow skipped).
+    //  Requires a BOOTSTRAP_SECRET from config/secrets.php to
+    //  match, so it can't be triggered by an anonymous visitor
+    //  even before the first admin exists.
+    // ----------------------------------------------------------
+    public function bootstrapFirstAdmin(): void {
+        Request::requireMethod('POST');
+
+        $body = Request::json();
+
+        $secrets     = require __DIR__ . '/../config/secrets.php';
+        $expectedKey = $secrets['BOOTSTRAP_SECRET'] ?? '';
+        $providedKey = $body['bootstrap_key'] ?? '';
+
+        if (empty($expectedKey) || !hash_equals($expectedKey, $providedKey)) {
+            error_log('Bootstrap attempt with invalid key from '
+                . ($_SERVER['REMOTE_ADDR'] ?? 'unknown'));
+            Response::error('Unauthorized.', 403);
+        }
+
+        if ($this->userModel->adminExists()) {
+            Response::error('Setup already completed. An admin account already exists.', 409);
+        }
+
+        $first_name = Request::sanitizeString($body['first_name'] ?? '');
+        $last_name  = Request::sanitizeString($body['last_name']  ?? '');
+        $email      = filter_var($body['email'] ?? '', FILTER_SANITIZE_EMAIL);
+        $phone_no   = Request::sanitizeString($body['phone_no']   ?? '');
+        $password   = $body['password'] ?? '';
+        $house_no   = Request::sanitizeString($body['house_no']   ?? '');
+
+        if (empty($first_name) || empty($last_name)) {
+            Response::error('First name and last name are required.', 400);
+        }
+
+        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            Response::error('A valid email address is required.', 400);
+        }
+
+        if (empty($phone_no)) {
+            Response::error('Phone number is required.', 400);
+        }
+
+        if (strlen($password) < 8) {
+            Response::error('Password must be at least 8 characters.', 400);
+        }
+
+        if (empty($house_no)) {
+            Response::error('House number is required.', 400);
+        }
+
+        $result = $this->userModel->bootstrapFirstAdmin(
+            $first_name, $last_name, $email, $phone_no, $password, $house_no
+        );
+
+        if (!$result['success']) {
+            Response::error($result['message'], 409);
+        }
+
+        
+        error_log("Bootstrap: first admin account created — {$email}");
+        Response::success($result['data'], 'First admin account created successfully.', 201);
+    }
     // ----------------------------------------------------------
     //  POST /api/auth/login
     //  Public endpoint — no JWT required.
@@ -261,6 +332,67 @@ class AuthController {
 
         Response::success($result['data'], 'Pending residents retrieved.');
     }
+
+    # AuthController.php — add these two methods
+# (a natural spot: right after getPendingResidents())
+
+    // ----------------------------------------------------------
+    //  GET /api/auth/residents
+    //  Protected — admin only.
+    //
+    //  Returns ALL residents (any verification_status), unlike
+    //  getPendingResidents() which only returns pending ones.
+    //  Optional ?search= filters by name, email, or house_no.
+    // ----------------------------------------------------------
+    public function getAllResidents(): void {
+        Request::requireMethod('GET');
+
+        $caller = $this->requireAuth(['admin']);
+
+        $search = Request::sanitizeString($_GET['search'] ?? '');
+
+        $result = $this->userModel->getAllResidents(
+            $caller['user_id'],
+            $search
+        );
+
+        if (!$result['success']) {
+            Response::error($result['message'], 500);
+        }
+
+        Response::success($result['data'], 'Residents retrieved.');
+    }
+
+    // ----------------------------------------------------------
+    //  GET /api/auth/staff
+    //  Protected — admin only.
+    //
+    //  Returns ALL staff (guard + admin accounts).
+    //  Shares the /auth/staff URL with POST createStaffUser() —
+    //  differentiated by HTTP method in the router.
+    //  Optional ?search= filters by name, email, or role.
+    // ----------------------------------------------------------
+    public function getAllStaff(): void {
+        Request::requireMethod('GET');
+
+        $caller = $this->requireAuth(['admin']);
+
+        $search = Request::sanitizeString($_GET['search'] ?? '');
+
+        $result = $this->userModel->getAllStaff(
+            $caller['user_id'],
+            $search
+        );
+
+        if (!$result['success']) {
+            Response::error($result['message'], 500);
+        }
+
+        Response::success($result['data'], 'Staff retrieved.');
+    }
+
+
+
 
     // ----------------------------------------------------------
     //  PATCH /api/auth/status/{id}

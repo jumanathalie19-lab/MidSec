@@ -1,24 +1,15 @@
 <?php
 // ============================================================
 //  MIDVIEW SECURITY APP
-//  public/index.php  — Front Controller / Router
-//
-//  Single entry point for all API requests.
-//  Responsibilities:
-//    1. Global exception handler (JSON error on uncaught exception)
-//    2. CORS headers (set once, applies to all responses)
-//    3. OPTIONS preflight handling
-//    4. URL routing to correct controller + method
-//    5. URL parameter extraction
+//  public/index.php — Front Controller / Router
 // ============================================================
 
 require_once __DIR__ . '/../helpers/Response.php';
 
-// ---- 1. Global exception handler ----------------------------
-// Catches any uncaught exception and returns a JSON error
-// instead of a raw PHP error page.
+// ---- Global exception handler ------------------------------
 set_exception_handler(function (Throwable $e) {
-    error_log('Uncaught exception: ' . $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine());
+    error_log('Uncaught exception: ' . $e->getMessage()
+        . ' in ' . $e->getFile() . ':' . $e->getLine());
     http_response_code(500);
     header('Content-Type: application/json');
     echo json_encode([
@@ -29,85 +20,101 @@ set_exception_handler(function (Throwable $e) {
     exit;
 });
 
-// ---- 2. CORS headers ----------------------------------------
-// Set once here — applies to every API response.
-// Update 'Access-Control-Allow-Origin' to restrict to your
-// specific frontend domain in production (not '*').
+// ---- CORS headers ------------------------------------------
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET, POST, PUT, PATCH, DELETE, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type, Authorization');
 header('Content-Type: application/json');
 
-// ---- 3. OPTIONS preflight -----------------------------------
-// Return 204 immediately for preflight requests.
-// Must happen BEFORE any authentication check.
+// ---- OPTIONS preflight -------------------------------------
+// Must return 204 BEFORE any auth check
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     http_response_code(204);
     exit;
 }
 
-// ---- 4. URL routing -----------------------------------------
-// Parse the request URI and strip the base path.
-// Assumes the API is served from /api/ e.g.:
-//   https://midview.app/api/auth/login
-//   https://midview.app/api/incidents/5/status
+// ---- Parse URL ---------------------------------------------
+$uri   = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
+$uri   = rtrim($uri, '/');
 
-$uri    = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
-$uri    = rtrim($uri, '/');
+// Strip /MIDSEC/api prefix — adjust if your folder name differs
+$uri   = preg_replace('#^/MIDSEC/api#', '', $uri);
+$uri   = preg_replace('#^/api#',        '', $uri); // fallback
 
-// Strip /api prefix
-$uri    = preg_replace('#^/api#', '', $uri);
-$parts  = explode('/', trim($uri, '/'));
+$parts = explode('/', trim($uri, '/'));
 
-$resource    = $parts[0] ?? '';
-$id          = isset($parts[1]) && is_numeric($parts[1]) ? (int)$parts[1] : null;
-$sub         = $parts[2] ?? '';  // e.g. 'status', 'restore', 'respond'
+$resource = $parts[0] ?? '';
+$id       = isset($parts[1]) && is_numeric($parts[1]) ? (int)$parts[1] : null;
+$sub      = $parts[2] ?? '';
 
-// ---- 5. Route dispatch --------------------------------------
-
+// ---- Route dispatch ----------------------------------------
 switch ($resource) {
 
     // --------------------------------------------------------
-    //  AUTH ROUTES
+    //  AUTH
     // --------------------------------------------------------
     case 'auth':
         require_once __DIR__ . '/../controllers/AuthController.php';
         $ctrl = new AuthController();
 
-        if ($sub === 'register')         { $ctrl->register();                    break; }
-        if ($sub === 'login')            { $ctrl->login();                       break; }
-        if ($sub === 'staff')            { $ctrl->createStaffUser();             break; }
-        if ($sub === 'pending')          { $ctrl->getPendingResidents();         break; }
-        if ($sub === 'profile') {
-            $ctrl->getProfile($id);
+        $segment = $parts[1] ?? '';
+
+        if ($segment === 'register')  { $ctrl->register();              break; }
+        if ($segment === 'bootstrap') { $ctrl->bootstrapFirstAdmin();    break; }
+        if ($segment === 'login')     { $ctrl->login();                 break; }
+        if ($segment === 'pending')   { $ctrl->getPendingResidents();   break; }
+        if ($segment === 'residents') { $ctrl->getAllResidents();       break; }
+
+        if ($segment === 'staff') {
+            match ($_SERVER['REQUEST_METHOD']) {
+                'POST'  => $ctrl->createStaffUser(),
+                'GET'   => $ctrl->getAllStaff(),
+                default => Response::error('Method not allowed.', 405),
+            };
             break;
         }
+
+        // /auth/profile  or  /auth/profile/{id}
+        if ($segment === 'profile') {
+            $profileId = isset($parts[2]) && is_numeric($parts[2])
+                ? (int)$parts[2] : null;
+            $ctrl->getProfile($profileId);
+            break;
+        }
+
         // /auth/verify/{id}
-        if ($sub === 'verify' && $id !== null) {
-            // id is the 3rd segment: /auth/verify/5
-            $target = isset($parts[2]) && is_numeric($parts[2]) ? (int)$parts[2] : null;
-            if (!$target) { Response::error('User ID required.', 400); }
+        if ($segment === 'verify') {
+            $target = isset($parts[2]) && is_numeric($parts[2])
+                ? (int)$parts[2] : null;
+            if (!$target) Response::error('User ID required.', 400);
             $ctrl->verifyResident($target);
             break;
         }
+
         // /auth/status/{id}
-        if ($sub === 'status' && $id !== null) {
-            $target = isset($parts[2]) && is_numeric($parts[2]) ? (int)$parts[2] : null;
-            if (!$target) { Response::error('User ID required.', 400); }
+        if ($segment === 'status') {
+            $target = isset($parts[2]) && is_numeric($parts[2])
+                ? (int)$parts[2] : null;
+            if (!$target) Response::error('User ID required.', 400);
             $ctrl->updateUserStatus($target);
             break;
         }
+
         Response::error('Auth endpoint not found.', 404);
         break;
 
+
+        
     // --------------------------------------------------------
-    //  INCIDENT ROUTES
+    //  INCIDENTS
     // --------------------------------------------------------
     case 'incidents':
         require_once __DIR__ . '/../controllers/IncidentController.php';
-        $ctrl = new IncidentController();
+        $ctrl    = new IncidentController();
+        $segment = $parts[1] ?? '';
 
-        if ($id === null) {
+        // /incidents  (POST = create, GET = all)
+        if ($segment === '') {
             match ($_SERVER['REQUEST_METHOD']) {
                 'POST' => $ctrl->create(),
                 'GET'  => $ctrl->index(),
@@ -116,197 +123,208 @@ switch ($resource) {
             break;
         }
 
-        // /incidents/deleted (before numeric check)
-        if ($parts[1] === 'deleted') { $ctrl->getDeleted();  break; }
+        // /incidents/deleted
+        if ($segment === 'deleted') { $ctrl->getDeleted(); break; }
 
-        // /incidents/user or /incidents/user/{id}
-        if ($parts[1] === 'user') {
-            $uid = isset($parts[2]) && is_numeric($parts[2]) ? (int)$parts[2] : null;
+        // /incidents/user  or  /incidents/user/{id}
+        if ($segment === 'user') {
+            $uid = isset($parts[2]) && is_numeric($parts[2])
+                ? (int)$parts[2] : null;
             $ctrl->getByUser($uid);
             break;
         }
 
         // /incidents/{id}
-        if ($sub === '') {
-            match ($_SERVER['REQUEST_METHOD']) {
-                'GET'    => $ctrl->show($id),
-                'DELETE' => $ctrl->delete($id),
-                default  => Response::error('Method not allowed.', 405),
-            };
-            break;
-        }
+        if (is_numeric($segment)) {
+            $iid = (int)$segment;
+            $action = $parts[2] ?? '';
 
-        // /incidents/{id}/status
-        if ($sub === 'status')  { $ctrl->updateStatus($id); break; }
-        // /incidents/{id}/restore
-        if ($sub === 'restore') { $ctrl->restore($id);      break; }
+            if ($action === '') {
+                match ($_SERVER['REQUEST_METHOD']) {
+                    'GET'    => $ctrl->show($iid),
+                    'DELETE' => $ctrl->delete($iid),
+                    default  => Response::error('Method not allowed.', 405),
+                };
+                break;
+            }
+            if ($action === 'status')  { $ctrl->updateStatus($iid); break; }
+            if ($action === 'restore') { $ctrl->restore($iid);      break; }
+        }
 
         Response::error('Incident endpoint not found.', 404);
         break;
 
     // --------------------------------------------------------
-    //  PANIC ROUTES
+    //  PANIC
     // --------------------------------------------------------
     case 'panic':
         require_once __DIR__ . '/../controllers/PanicController.php';
-        $ctrl = new PanicController();
+        $ctrl    = new PanicController();
+        $segment = $parts[1] ?? '';
 
-        if ($id === null && $sub === '') {
-            match ($parts[1] ?? '') {
-                'active'     => $ctrl->getActive(),
-                'history'    => $ctrl->history(),
-                'my'         => $ctrl->myPanics(),
-                'statistics' => $ctrl->statistics(),
-                default      => match ($_SERVER['REQUEST_METHOD']) {
-                    'POST'  => $ctrl->trigger(),
-                    default => Response::error('Panic endpoint not found.', 404),
-                },
+        if ($segment === '')          {
+            match ($_SERVER['REQUEST_METHOD']) {
+                'POST' => $ctrl->trigger(),
+                default => Response::error('Panic endpoint not found.', 404),
             };
             break;
         }
+        if ($segment === 'active')     { $ctrl->getActive();     break; }
+        if ($segment === 'history')    { $ctrl->history();       break; }
+        if ($segment === 'my')         { $ctrl->myPanics();      break; }
+        if ($segment === 'statistics') { $ctrl->statistics();    break; }
 
         // /panic/{id}
-        if ($sub === '')         { $ctrl->show($id);       break; }
-        // /panic/{id}/respond
-        if ($sub === 'respond')  { $ctrl->respond($id);    break; }
-        // /panic/{id}/close
-        if ($sub === 'close')    { $ctrl->close($id);      break; }
+        if (is_numeric($segment)) {
+            $aid    = (int)$segment;
+            $action = $parts[2] ?? '';
+            if ($action === '')         { $ctrl->show($aid);       break; }
+            if ($action === 'respond')  { $ctrl->respond($aid);    break; }
+            if ($action === 'close')    { $ctrl->close($aid);      break; }
+        }
 
         Response::error('Panic endpoint not found.', 404);
         break;
 
     // --------------------------------------------------------
-    //  CCTV ROUTES
+    //  CCTV
     // --------------------------------------------------------
     case 'cctv':
         require_once __DIR__ . '/../controllers/CctvController.php';
-        $ctrl = new CctvController();
+        $ctrl    = new CctvController();
+        $segment = $parts[1] ?? '';
 
-        if ($id === null && $sub === '') {
-            match ($parts[1] ?? '') {
-                'nearest'   => $ctrl->getNearest(),
-                'summary'   => $ctrl->statusSummary(),
-                default     => match ($_SERVER['REQUEST_METHOD']) {
-                    'GET'  => $ctrl->index(),
-                    'POST' => $ctrl->create(),
-                    default => Response::error('Method not allowed.', 405),
-                },
+        if ($segment === '') {
+            match ($_SERVER['REQUEST_METHOD']) {
+                'GET'  => $ctrl->index(),
+                'POST' => $ctrl->create(),
+                default => Response::error('Method not allowed.', 405),
             };
             break;
         }
+        if ($segment === 'nearest') { $ctrl->getNearest();      break; }
+        if ($segment === 'summary') { $ctrl->statusSummary();   break; }
 
         // /cctv/{id}
-        if ($sub === '') {
-            match ($_SERVER['REQUEST_METHOD']) {
-                'GET'    => $ctrl->show($id),
-                'PUT'    => $ctrl->update($id),
-                'DELETE' => $ctrl->delete($id),
-                default  => Response::error('Method not allowed.', 405),
-            };
-            break;
+        if (is_numeric($segment)) {
+            $fid    = (int)$segment;
+            $action = $parts[2] ?? '';
+            if ($action === '') {
+                match ($_SERVER['REQUEST_METHOD']) {
+                    'GET'    => $ctrl->show($fid),
+                    'PUT'    => $ctrl->update($fid),
+                    'DELETE' => $ctrl->delete($fid),
+                    default  => Response::error('Method not allowed.', 405),
+                };
+                break;
+            }
+            if ($action === 'status') { $ctrl->toggleStatus($fid); break; }
+            if ($action === 'audit')  { $ctrl->auditTrail($fid);   break; }
         }
-
-        // /cctv/{id}/status
-        if ($sub === 'status') { $ctrl->toggleStatus($id); break; }
-        // /cctv/{id}/audit
-        if ($sub === 'audit')  { $ctrl->auditTrail($id);   break; }
 
         Response::error('CCTV endpoint not found.', 404);
         break;
 
     // --------------------------------------------------------
-    //  PAYMENT ROUTES
+    //  PAYMENTS
     // --------------------------------------------------------
     case 'payments':
         require_once __DIR__ . '/../controllers/PaymentController.php';
-        $ctrl = new PaymentController();
+        $ctrl    = new PaymentController();
+        $segment = $parts[1] ?? '';
 
-        if ($id === null && $sub === '') {
-            match ($parts[1] ?? '') {
-                'initiate'     => $ctrl->initiate(),
-                'callback'     => $ctrl->callback(),
-                'subscription' => $ctrl->checkSubscription(),
-                'overdue'      => $ctrl->overdue(),
-                'statistics'   => $ctrl->statistics(),
-                'history'      => $ctrl->history(),
-                default        => match ($_SERVER['REQUEST_METHOD']) {
-                    'GET' => $ctrl->index(),
-                    default => Response::error('Payments endpoint not found.', 404),
-                },
+        if ($segment === '') {
+            match ($_SERVER['REQUEST_METHOD']) {
+                'GET' => $ctrl->index(),
+                default => Response::error('Payments endpoint not found.', 404),
             };
             break;
         }
+        if ($segment === 'initiate')     { $ctrl->initiate();          break; }
+        if ($segment === 'callback')     { $ctrl->callback();          break; }
+        if ($segment === 'subscription') { $ctrl->checkSubscription(); break; }
+        if ($segment === 'overdue')      { $ctrl->overdue();           break; }
+        if ($segment === 'statistics')   { $ctrl->statistics();        break; }
 
-        // /payments/history/{user_id}
-        if ($parts[1] === 'history' && $id !== null) {
-            $uid = isset($parts[2]) && is_numeric($parts[2]) ? (int)$parts[2] : null;
+        // /payments/history  or  /payments/history/{id}
+        if ($segment === 'history') {
+            $uid = isset($parts[2]) && is_numeric($parts[2])
+                ? (int)$parts[2] : null;
             $ctrl->history($uid);
             break;
         }
 
         // /payments/{id}
-        if ($sub === '') { $ctrl->show($id); break; }
+        if (is_numeric($segment)) {
+            $ctrl->show((int)$segment);
+            break;
+        }
 
         Response::error('Payments endpoint not found.', 404);
         break;
 
     // --------------------------------------------------------
-    //  POLICE ESCALATION ROUTES
+    //  POLICE
     // --------------------------------------------------------
     case 'police':
         require_once __DIR__ . '/../controllers/PoliceController.php';
-        $ctrl = new PoliceController();
+        $ctrl    = new PoliceController();
+        $segment = $parts[1] ?? '';
 
-        if ($id === null && $sub === '') {
-            match ($parts[1] ?? '') {
-                'escalate' => $ctrl->escalate(),
-                default    => match ($_SERVER['REQUEST_METHOD']) {
-                    'GET' => $ctrl->index(),
-                    default => Response::error('Police endpoint not found.', 404),
-                },
+        if ($segment === '') {
+            match ($_SERVER['REQUEST_METHOD']) {
+                'GET' => $ctrl->index(),
+                default => Response::error('Police endpoint not found.', 404),
             };
             break;
         }
+        if ($segment === 'escalate') { $ctrl->escalate(); break; }
 
         // /police/incident/{incident_id}
-        if ($parts[1] === 'incident' && isset($parts[2]) && is_numeric($parts[2])) {
-            $ctrl->getByIncident((int)$parts[2]);
+        if ($segment === 'incident') {
+            $iid = isset($parts[2]) && is_numeric($parts[2])
+                ? (int)$parts[2] : null;
+            if (!$iid) Response::error('Incident ID required.', 400);
+            $ctrl->getByIncident($iid);
             break;
         }
 
         // /police/{id}
-        if ($sub === '') { $ctrl->show($id); break; }
-
-        // /police/{id}/status
-        if ($sub === 'status') { $ctrl->updateStatus($id); break; }
-        // /police/{id}/close
-        if ($sub === 'close')  { $ctrl->close($id);        break; }
+        if (is_numeric($segment)) {
+            $eid    = (int)$segment;
+            $action = $parts[2] ?? '';
+            if ($action === '')       { $ctrl->show($eid);          break; }
+            if ($action === 'status') { $ctrl->updateStatus($eid);  break; }
+            if ($action === 'close')  { $ctrl->close($eid);         break; }
+        }
 
         Response::error('Police endpoint not found.', 404);
         break;
 
     // --------------------------------------------------------
-    //  SMS ROUTES
+    //  SMS
     // --------------------------------------------------------
     case 'sms':
         require_once __DIR__ . '/../controllers/SmsController.php';
-        $ctrl = new SmsController();
+        $ctrl    = new SmsController();
+        $segment = $parts[1] ?? '';
 
-        if ($id === null && $sub === '') {
-            match ($parts[1] ?? '') {
-                'log'        => $ctrl->log(),
-                'statistics' => $ctrl->statistics(),
-                default      => match ($_SERVER['REQUEST_METHOD']) {
-                    'GET' => $ctrl->index(),
-                    default => Response::error('SMS endpoint not found.', 404),
-                },
+        if ($segment === '') {
+            match ($_SERVER['REQUEST_METHOD']) {
+                'GET' => $ctrl->index(),
+                default => Response::error('SMS endpoint not found.', 404),
             };
             break;
         }
+        if ($segment === 'log')        { $ctrl->log();        break; }
+        if ($segment === 'statistics') { $ctrl->statistics(); break; }
 
         // /sms/incident/{incident_id}
-        if ($parts[1] === 'incident' && isset($parts[2]) && is_numeric($parts[2])) {
-            $ctrl->getByIncident((int)$parts[2]);
+        if ($segment === 'incident') {
+            $iid = isset($parts[2]) && is_numeric($parts[2])
+                ? (int)$parts[2] : null;
+            if (!$iid) Response::error('Incident ID required.', 400);
+            $ctrl->getByIncident($iid);
             break;
         }
 
@@ -314,13 +332,14 @@ switch ($resource) {
         break;
 
     // --------------------------------------------------------
-    //  REPORT ROUTES
+    //  REPORTS
     // --------------------------------------------------------
     case 'reports':
         require_once __DIR__ . '/../controllers/ReportController.php';
-        $ctrl = new ReportController();
+        $ctrl    = new ReportController();
+        $segment = $parts[1] ?? '';
 
-        match ($parts[1] ?? '') {
+        match ($segment) {
             'monthly-incidents' => $ctrl->monthlyIncidents(),
             'crime-trends'      => $ctrl->crimeTrends(),
             'panic-statistics'  => $ctrl->panicStatistics(),

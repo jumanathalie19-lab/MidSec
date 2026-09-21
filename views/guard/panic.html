@@ -134,7 +134,7 @@
 
 <div class="topbar">
   <div style="display:flex;align-items:center;">
-    <button class="back" onclick="goto('dashboard.html')">←</button>
+    <button class="back" onclick="goHome()">←</button>
     <h1>Panic Alerts</h1>
   </div>
   <button class="refresh-btn" onclick="loadActive()">⟳ Refresh</button>
@@ -188,7 +188,7 @@
 
 <!-- Bottom nav -->
 <div class="bottomnav">
-  <button class="navitem" onclick="goto('dashboard.html')">
+  <button class="navitem" onclick="goHome()">
     <svg viewBox="0 0 24 24"><path d="M3 12l9-9 9 9M5 10v9a1 1 0 001 1h4v-5h4v5h4a1 1 0 001-1v-9"/></svg>
     Home
   </button>
@@ -215,10 +215,11 @@
 //  Midview — Guard Panic Dashboard
 //  APIs: GET  /api/panic/active
 //        PATCH /api/panic/{id}/respond
+
 //        PATCH /api/panic/{id}/close
 //        GET   /api/panic/history
 // ============================================================
-const API = 'http://localhost/midview-security-app/api';
+const API = 'http://localhost/MIDSEC/api';
 
 const token = localStorage.getItem('midview_token');
 const user  = JSON.parse(localStorage.getItem('midview_user') || 'null');
@@ -458,6 +459,10 @@ function showMsg(text, type) {
   el.textContent = text;
   el.className   = `msg ${type}`;
   setTimeout(() => { el.className = 'msg'; }, 5000);
+}
+//home navigation function
+function goHome() {
+  window.location.href = `../${user.role}/dashboard.html`;
 }
 
 function closeOverlay()  { document.getElementById('overlay').classList.remove('open'); }

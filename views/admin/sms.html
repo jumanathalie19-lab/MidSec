@@ -148,7 +148,7 @@
 
 <!-- Bottom nav -->
 <div class="bottomnav">
-  <button class="navitem" onclick="goto('dashboard.html')">
+  <button class="navitem" onclick="goHome()">
     <svg viewBox="0 0 24 24"><path d="M3 12l9-9 9 9M5 10v9a1 1 0 001 1h4v-5h4v5h4a1 1 0 001-1v-9"/></svg>
     Home
   </button>
@@ -177,7 +177,7 @@
 //        GET /api/sms/statistics   — delivery stats (admin only)
 //  recipient_phone returned to admin by the procedure.
 // ============================================================
-const API = 'http://localhost/midview-security-app/api';
+const API = 'http://localhost/MIDSEC/api';
 const token = localStorage.getItem('midview_token');
 const user  = JSON.parse(localStorage.getItem('midview_user') || 'null');
 if (!token || !user || user.role !== 'admin') {
@@ -322,7 +322,10 @@ async function loadStats() {
       </table>`;
   } catch {}
 }
-
+//go home navigation
+function goHome(){
+  window.location.href=`../${user.role}/dashboard.html`;
+}
 loadLogs();
 loadStats();
 </script>

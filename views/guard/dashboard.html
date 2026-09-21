@@ -256,7 +256,7 @@
 
 <!-- Bottom nav -->
 <div class="bottomnav">
-  <button class="navitem active" onclick="goto('dashboard.html')">
+  <button class="navitem active" onclick="goHome()">
     <svg viewBox="0 0 24 24">
       <path d="M3 12l9-9 9 9M5 10v9a1 1 0 001 1h4v-5h4v5h4a1 1 0 001-1v-9"/>
     </svg>
@@ -296,7 +296,7 @@
 //  APIs:  GET /api/panic/active
 //         GET /api/incidents?status=open
 // ============================================================
-const API = 'http://localhost/midview-security-app/api';
+const API = 'http://localhost/MIDSEC/api';
 
 // ---- Auth guard --------------------------------------------
 const token = localStorage.getItem('midview_token');
@@ -500,6 +500,11 @@ function guardLogout() {
   localStorage.removeItem('midview_token');
   localStorage.removeItem('midview_user');
   window.location.href = '../shared/login.html';
+}
+
+// home navigation
+ function goHome() {
+  window.location.href = `../${user.role}/dashboard.html`;
 }
 
 // ---- Auto-refresh active panics every 30s ------------------
